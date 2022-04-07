@@ -3,6 +3,8 @@
 ! Utilities:
 !
 ! (1) summarize_eigenvectors()       Originally By JRD,CHP   Last Modified: 3/16/2018 (GKA)
+! Modified version by Rafael Del Grande 4/6/22. Writes A_cvk files with the real and imaginary part of Acvk
+! The original code just prints max(|Acvk|) and sum_k |Acvk|^2 for a given cv pair.
 !
 !     This program prints some useful information about the exciton wavefunction.
 !
@@ -113,6 +115,7 @@ program summarize_eigenvectors
         do ik=1,nk
           do is=1,ns
             if ( tda ) then
+              ! RDG -> my modifications are here
               !this_weight = abs(evecs%Avc(is,iv,ic,ik,1))**2
               this_weight = evecs%Avc(is,iv,ic,ik,1)
               this_weight2 = IMAG(evecs%Avc(is,iv,ic,ik,1))
@@ -126,7 +129,7 @@ program summarize_eigenvectors
               wmax = this_weight
               ikmax = ik
             endif
-            ! writing more information RDG
+            ! writing more information necessary for excited state forces calculations RDG
             write(4321,'(3i5,3f10.6)') ic, iv, ik, this_weight, this_weight2, this_weight3
           enddo
         enddo
