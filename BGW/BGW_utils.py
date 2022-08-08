@@ -385,6 +385,37 @@ def read_overlap_matrix(wnf_dot_file, Nbnds):
     return S
 
 
+def read_Sigma_matrix(sigma_hp_file, Nbnds):
 
+    """Reads sigma_hp.log file from sigma calculation
+    and returns the <i|Sigma(E) - Vxc|j> matrix
+
+    Returns:
+        <i|Sigma(E) - Vxc|j>: array with complex values
+    """
+
+    Sigma = np.zeros((Nbnds, Nbnds), dtype=complex)
+    arq_data = open(sigma_hp_file)
+
+    for line in arq_data:
+        linha = line.split()
+        if len(linha) == 11:
+            try:
+                int(linha[0])
+                n, m = int(linha[0]), int(linha[1])
+                if n <= Nbnds and m <= Nbnds:
+                    if linha[3] == 'real':
+                        fator = 1.0
+                    else:
+                        fator = 1.0j
+
+                    eqp_corr = float(linha[7]) - float(linha[8])
+
+                    Sigma[n-1, m-1] = Sigma[n-1, m-1] + eqp_corr*fator
+                
+            except:
+                pass
+
+    return Sigma
 
     
