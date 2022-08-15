@@ -1,7 +1,7 @@
 #!/usr/bin/python
 
 '''Usage: 
-python plot_transitions.py Nk Nc Nv file.dat
+python plot_transitions.py file.dat Nk Nc Nv 
 Where 
 Nc = Number of cond bands to be analized 
 Nv = Number of val bands to be analized 
@@ -24,19 +24,18 @@ Ry2eV = 13.605662285137
 bohr2A = 0.529177
 
 # Default parameters
-Nc, Nv, Nk = 1, 1, 1
 file_name = 'eigenvalues_noeh.dat'
 
 try:
-    Nk = int(sys.argv[1])
-    Nc = int(sys.argv[2])
-    Nv = int(sys.argv[3])
-    file_name = sys.argv[4]
+    Nk = int(sys.argv[2])
+    Nc = int(sys.argv[3])
+    Nv = int(sys.argv[4])
+    file_name = sys.argv[1]
 except:
-    print('Usage -> python plot_transitions.py Nk Nc Nv file.dat')
+    print('Usage -> python plot_transitions.py file.dat Nk Nc Nv')
     print('Something went wrong')
-    print('Using default parameters, Nc=1, Nv=1, Nk=1')
-    Nc, Nv, Nk = 1, 1, 1
+    print('Using default parameters: nc=-1, nv=-1, and nk=-1')
+    Nc, Nv, Nk = -1, -1, -1
     file_name = 'absorption_noeh.dat'
 
 # get information in file 
