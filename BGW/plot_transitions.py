@@ -1,14 +1,22 @@
 #!/usr/bin/python
 
 '''Usage: 
-python plot_transitions.py file.dat Nk Nc Nv 
-Where 
-Nc = Number of cond bands to be analized 
-Nv = Number of val bands to be analized 
-Nk = Number of k points to be analized 
-file.dat = Name of eigenvalues file (with or without eh interaction)
+python plot_transitions.py file.dat Nk Nc Nv Emin Emax
+or 
+python plot_transitions.py file.dat
 
-To get all valence (conduction) bands set Nc (Nv) to a negative number.'''
+Where 
+file.dat = Name of eigenvalues file (can be with or without eh interaction)
+Nc   = Number of cond bands to be analized 
+Nv   = Number of val bands to be analized 
+Nk   = Number of k points to be analized 
+Emin = Just analyze eigenvalues with energy > Emin. Value in eV
+Emax = Just analyze eigenvalues with energy < Emax. Value in eV 
+
+
+To get all valence (conduction) bands set Nc (Nv) to a negative number.
+If 
+'''
 
 import sys
 
@@ -17,26 +25,33 @@ import matplotlib.pyplot as plt
 import matplotlib.backends.backend_pdf
 pdf_report = matplotlib.backends.backend_pdf.PdfPages("output.pdf")
 
-config_dir='/mnt/d/OneDrive/0-Projects/Codes/utilities/config_files/presentation.mplstyle'
-plt.style.use(config_dir)
+# config_dir='/mnt/d/OneDrive/0-Projects/Codes/utilities/config_files/presentation.mplstyle'
+# plt.style.use(config_dir)
 
 Ry2eV = 13.605662285137
 bohr2A = 0.529177
+
+plot_each_transition = True  # if True plot abs(k) vs k for each one of v->c transitions
 
 # Default parameters
 file_name = 'eigenvalues_noeh.dat'
 
 try:
-    Nk = int(sys.argv[2])
-    Nc = int(sys.argv[3])
-    Nv = int(sys.argv[4])
     file_name = sys.argv[1]
+    Nk        = int(sys.argv[2])
+    Nc        = int(sys.argv[3])
+    Nv        = int(sys.argv[4])
+    Emin      = float(sys.argv[5])
+    Emax      = float(sys.argv[6])
 except:
-    print('Usage -> python plot_transitions.py file.dat Nk Nc Nv')
+    print('Usage -> python plot_transitions.py file.dat Nk Nc Nv Emin Emax')
     print('Using default parameters: nc=-1, nv=-1, and nk=-1')
+    print('Using default Emin and Emax (1e5 may be enough!) (all values in file)')
+
     Nc, Nv, Nk = -1, -1, -1
+    Emin = 0
+    Emax = 1e5 # may be enough!
     file_name = 'eigenvalues_noeh.dat'
-    print('Reading eigenvalues_noeh.dat file'
 
 # get information in file 
 print(f'Reading file {file_name}')
@@ -86,10 +101,16 @@ for i_transition in range(len(transitions)):
 data_eigenvals = np.loadtxt(file_name)
 
 for i_line in range(len(data_eigenvals)):
+
     ik = int(data_eigenvals[i_line, 0])
     ic = int(data_eigenvals[i_line, 1])
     iv = int(data_eigenvals[i_line, 2])
-    abs_dip = data_eigenvals[i_line, 7]
+
+    delta_E = data_eigenvals[i_line, 6]
+    if Emin < delta_E < Emax:
+        abs_dip = data_eigenvals[i_line, 7]
+    else:
+        abs_dip = 0.0
 
     if ic <= Nc and iv <= Nv and ik <= Nk:
         i_transition = transitions.index((iv, ic))
@@ -106,20 +127,6 @@ for ic in range(1, Nc + 1):
         i_transition = transitions.index((iv, ic))
         integrated_absdip[ic-1, iv-1] = np.sum(abs_vs_k[i_transition])
 
-# Plotting abs**2 vs k for each ic,iv pair
-
-for i_transition in range(len(transitions)):
-    plt.figure()
-    
-    iv, ic = transitions[i_transition]
-    plt.title(f'ic={ic} / iv={iv}')
-    plt.plot(K, abs_vs_k[i_transition])
-    plt.xlabel('k')
-    plt.xticks([])
-    plt.ylabel('abs(dip)**2')
-
-    pdf_report.savefig()
-    plt.close()
 
 # Plotting integrated abs**2 over k points for each ic,iv pair in matrix form
 
@@ -128,8 +135,25 @@ plt.matshow((integrated_absdip))
 plt.colorbar()
 plt.xlabel('Valence')
 plt.ylabel('Conduction')
-
-
 pdf_report.savefig()
 
+
+# Plotting abs**2 vs k for each ic,iv pair
+
+if plot_each_transition == True:
+    for i_transition in range(len(transitions)):
+        plt.figure()
+        
+        iv, ic = transitions[i_transition]
+        plt.title(f'ic={ic} / iv={iv}')
+        plt.plot(K, abs_vs_k[i_transition])
+        plt.xlabel('k index')
+        plt.ylabel('abs(dip)**2')
+
+        pdf_report.savefig()
+        plt.close()
+
+
 pdf_report.close()
+
+print('Finished!')
