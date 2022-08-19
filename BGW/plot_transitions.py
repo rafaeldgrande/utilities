@@ -33,12 +33,13 @@ try:
     file_name = sys.argv[1]
 except:
     print('Usage -> python plot_transitions.py file.dat Nk Nc Nv')
-    print('Something went wrong')
     print('Using default parameters: nc=-1, nv=-1, and nk=-1')
     Nc, Nv, Nk = -1, -1, -1
-    file_name = 'absorption_noeh.dat'
+    file_name = 'eigenvalues_noeh.dat'
+    print('Reading eigenvalues_noeh.dat file'
 
 # get information in file 
+print(f'Reading file {file_name}')
 arq = open(file_name)
 for line in arq:
     linha = line.split()
