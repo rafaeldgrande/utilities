@@ -25,18 +25,6 @@ import numpy as np
 from workflow_BGW_config import *
 from workflow_BGW_mod import *
 
-
-
-Ntypes, Natoms = 0, 0
-arq = open(QE_ATOMS)
-for line in arq:
-    line_split = line.split()
-    if len(line_split) == 3:  #C      12.0107   C.upf
-        Ntypes += 1
-    if len(line_split) == 4:  #C            0.5327850000       0.2500000000       0.9372530000
-        Natoms += 1
-
-
 # writing QE inputs
 
 os.system('mkdir -p 1-scf 2-wfn 3-wfnq 4-wfn_co 5-wfn_fi 6-wfnq_fi')
