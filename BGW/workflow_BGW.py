@@ -58,7 +58,7 @@ os.system('mkdir -p 7-epsilon 8-sigma 9-kernel 10.1-absorption_mom 10.2-absorpti
 
 # epsilon
 os.system('ln -sf ../2-wfn/wfn.complex 7-epsilon/WFN')
-os.system('ln -sf ../3-wfnq/wfn.complex 7-epsilon/WFN')
+os.system('ln -sf ../3-wfnq/wfn.complex 7-epsilon/WFNq')
 
 # sigma
 os.system('ln -sf ../2-wfn/wfn.complex 8-sigma/WFN_inner')
