@@ -385,7 +385,7 @@ def read_overlap_matrix(wnf_dot_file, Nbnds):
     return S
 
 
-def read_Sigma_matrix(sigma_hp_file, Nbnds):
+def read_Sigma_matrix(sigma_hp_file, Nbnds, ncol):
 
     """Reads sigma_hp.log file from sigma calculation
     and returns the <i|Sigma(E) - Vxc|j> matrix
@@ -409,9 +409,9 @@ def read_Sigma_matrix(sigma_hp_file, Nbnds):
                     else:
                         fator = 1.0j
 
-                    eqp_corr = float(linha[7]) - float(linha[8])
+                    energy = float(linha[ncol])
 
-                    Sigma[n-1, m-1] = Sigma[n-1, m-1] + eqp_corr*fator
+                    Sigma[n-1, m-1] = Sigma[n-1, m-1] + energy*fator
                 
             except:
                 pass
