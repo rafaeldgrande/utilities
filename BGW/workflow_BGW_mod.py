@@ -92,7 +92,7 @@ def write_pw2bgw_input(pw2bgw_inp, nbnds, qshift, qgrid):
     qshift_x, qshift_y, qshift_z = qshift
 
     text = '&input_pw2bgw \n'
-    text += f'prefix = {PREFIX} \n'
+    text += f"prefix = '{PREFIX}' \n"
     text += 'real_or_complex = 2 \n'
     text += 'wfng_flag = .true. \n'
     text += 'wfng_file = \'wfn.complex\' \n'
@@ -159,7 +159,7 @@ def write_epsilon(epsilon_inp):
     text += 'begin qpoints\n'
     for kpoint in Kpoints:
         if kpoint == [0.0, 0.0, 0.0]:
-            text += ' 0.0 0.0 0.0 1.0 1 \n'
+            text += ' 0.0 0.0 0.001 1.0 1 \n'
         else:
             kx, ky, kz = kpoint
             text += f' {kx}  {ky}  {kz}   1.0 0 \n'
