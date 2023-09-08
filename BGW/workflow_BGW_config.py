@@ -1,115 +1,68 @@
 
-# QE parameters
-PREFIX = 'MAPI'
-pseudo_dir = './'
 
-QE_ATOMS = 'ATOMS_FILE'
-QE_CELL = 'CELL_QE'
-
-Kgrid_coarse = [6,6,6]
-qshift_WFNq = [0,0, 1e-3]
-Kgrid_fine = [6,6,6]
-KPOINTS_FILE_SCF     = 'kpoints_scf'
-KPOINTS_FILE_WFN     = 'WFN.out'
-KPOINTS_FILE_WFNq    = 'WFNq.out'
-KPOINTS_FILE_WFN_fi  = 'WFN_fi.out'
-KPOINTS_FILE_WFNq_fi = 'WFNq_fi.out'
-
-# Bands numbers
-Nval = 25   # highest valence band
-Ncond_WFN = 500 # number of cond bands for WFN file
-Ncond_WFNq = 50 # number of cond bands for WFNq file
-Ncond_WFNco = 10 # WFN_co
-Ncond_WFNfi = 10
-
-# BGW params 
-NminGW, NmaxGW = 90, 110
-nvalKernel, ncondKernel = 10, 10
-nvalBSE, ncondBSE = 5, 5 
-        
-# def read_test(input_file):
-#     arq = open(input_file)
-#     for line in arq:
-#         print(line)
-# read_test('workflow_input')
-
-
-# reading input file
-# arq = open('workflow_input')
-
-# for line in arq:
-#     line_split = line.split()
-#     if len(line_split) > 1:
-#         if line_split[0] == 'PREFIX':
-#             PREFIX = line_split[1]
-#         elif line_split[0] == 'pseudo_dir':
-#             pseudo_dir = line_split[1]
-#         elif line_split[0] == 'QE_ATOMS':
+configurations = {
+    'prefix': '',
+    'pseudo_dir': '../',
+    'qe_atoms_file': 'QE_ATOMS',
+    'qe_cell_file': 'QE_CELL',
+    'kgrid_coarse': [1,1,1],
+    'qshift_wfnq': [0,0,0],
+    'kgrid_fine': [1,1,1],
+    'kpoints_file_scf': 'KPOINTS_FILE_SCF',
+    'kpoints_file_wfn': 'KPOINTS_FILE_WFN',
+    'kpoints_file_wfnq': 'KPOINTS_FILE_WFNq',
+    'kpoints_file_wfn_fi': 'KPOINTS_FILE_WFN_fi',
+    'kpoints_file_wfnq_fi': 'KPOINTS_FILE_WFNq_fi',
+    'nval': 0,
+    'ncond_wfn': 0,
+    'ncond_wfnq': 0,
+    'ncond_wfnco': 0,
+    'ncond_wfnfi': 0,
+    'nmin_gw': 0,
+    'nmax_gw': 0,
+    'nval_kernel': 0,
+    'ncond_kernel': 0,
+    'nval_bse': 0,
+    'ncond_bse': 0,
+    'dft_ekin_cutoff': 40,
+    'qshift_bse': [0,0,0],
+    'epsilon_cutoff': 10, 
+    'truncation_scheme': ''
+}
         
 import configparser
+import ast
 
-config = configparser.ConfigParser()
-config.read("workflow_input")
+config_from_file = configparser.ConfigParser()
+config_from_file.read("workflow_input")
 
-PREFIX               =  config.get("VARS", "PREFIX" )  
-pseudo_dir           =  config.get("VARS", "pseudo_dir" )  
-QE_ATOMS             =  config.get("VARS", "QE_ATOMS" )  
-QE_CELL              =  config.get("VARS", "QE_CELL" )  
-Kgrid_coarse         =  config.get("VARS", "Kgrid_coarse" )  
-qshift_WFNq          =  config.get("VARS", "qshift_WFNq" )  
-Kgrid_fine           =  config.get("VARS", "Kgrid_fine" )  
-KPOINTS_FILE_SCF     =  config.get("VARS", "KPOINTS_FILE_SCF" )  
-KPOINTS_FILE_WFN     =  config.get("VARS", "KPOINTS_FILE_WFN" ) 
-KPOINTS_FILE_WFNq    =  config.get("VARS", "KPOINTS_FILE_WFNq" )  
-KPOINTS_FILE_WFN_fi  =  config.get("VARS", "KPOINTS_FILE_WFN_fi" )  
-KPOINTS_FILE_WFNq_fi =  config.get("VARS", "KPOINTS_FILE_WFNq_fi" )  
-Nval                 =  config.get("VARS", "Nval" )  
-Ncond_WFN            =  config.get("VARS", "Ncond_WFN" ) 
-Ncond_WFNq           =  config.get("VARS", "Ncond_WFNq" )   
-Ncond_WFNco          =  config.get("VARS", "Ncond_WFNco" )   
-Ncond_WFNfi          =  config.get("VARS", "Ncond_WFNfi" )  
-NminGW               =  config.get("VARS", "NminGW" )  
-NmaxGW               =  config.get("VARS", "NmaxGW" )  
-nvalKernel           =  config.get("VARS", "nvalKernel" )   
-ncondKernel          =  config.get("VARS", "ncondKernel" )  
-nvalBSE              =  config.get("VARS", "nvalBSE" )  
-ncondBSE             =  config.get("VARS", "ncondBSE" )  
+print('Reading input file workflow_input')
 
-print('##########')
-print(PREFIX)
-print(QE_ATOMS)
+for option, value in config_from_file['VARS'].items():
+    print(f'Option: {option}, Value: {value}')
+    # check if value is the same kind of variable as in default configurations
+    value = ast.literal_eval(value)
+    print('!!!!') 
+    # print(value)
+    # print(type(value))
+    # print(type(configurations[option]))
+    print('before mod', configurations[option])
 
-# getting number of atoms and number of atomic types
-Ntypes, Natoms = 0, 0
-arq = open(QE_ATOMS)
-for line in arq:
-    line_split = line.split()
-    if len(line_split) == 3:  #C      12.0107   C.upf
-        Ntypes += 1
-    if len(line_split) == 4:  #C            0.5327850000       0.2500000000       0.9372530000
-        Natoms += 1
-        
-# 
-temp = Kgrid_coarse.split()
-kx, ky, kz = int(temp[0]), int(temp[1]), int(temp[2])
-Kgrid_coarse = [kx, ky, kz]
+    if type(value) == type(configurations[option]):
 
-temp = qshift_WFNq.split()
-kx, ky, kz = float(temp[0]), float(temp[1]), float(temp[2])
-qshift_WFNq = [kx, ky, kz]
+        if type(value) == list: # check if lists have the same size!
+            if len(value) == len(configurations[option]):
+                configurations[option] = value
+            else:
+                print(f'Expected {len(configurations[option])} values but got {len(value)} for variable {option}')
+        else: # if not a list just load the data
+            configurations[option] = value
+                
+    else:
+        # checking if the user wrote one value that was suposed to be float but it is int
+        if type(value) == int and type(configurations[option]) == float: 
+            configurations[option] = float(value)
+        else:
+            print(f'Variable {option} in input file is {type(value)} but should be {type(configurations[option])}')
 
-temp = Kgrid_fine.split()
-kx, ky, kz = int(temp[0]), int(temp[1]), int(temp[2])
-Kgrid_fine = [kx, ky, kz]
-
-Nval = int(Nval)
-Ncond_WFN = int(Ncond_WFN)
-Ncond_WFNq = int(Ncond_WFNq)
-Ncond_WFNco = int(Ncond_WFNco)
-Ncond_WFNfi = int(Ncond_WFNfi)
-NminGW = int(NminGW)
-NmaxGW = int(NmaxGW)
-nvalKernel = int(nvalKernel)
-ncondKernel = int(ncondKernel)
-nvalBSE = int(nvalBSE)
-ncondBSE = int(ncondBSE)
+    print('after mod', configurations[option])
