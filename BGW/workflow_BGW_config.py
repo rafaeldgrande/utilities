@@ -1,4 +1,6 @@
 
+import os
+import sys
 
 configurations = {
     'prefix': '',
@@ -29,40 +31,53 @@ configurations = {
     'epsilon_cutoff': 10, 
     'truncation_scheme': ''
 }
-        
-import configparser
-import ast
 
-config_from_file = configparser.ConfigParser()
-config_from_file.read("workflow_input")
 
-print('Reading input file workflow_input')
+def load_workflow_input(configurations):
 
-for option, value in config_from_file['VARS'].items():
-    print(f'Option: {option}, Value: {value}')
-    # check if value is the same kind of variable as in default configurations
-    value = ast.literal_eval(value)
-    print('!!!!') 
-    # print(value)
-    # print(type(value))
-    # print(type(configurations[option]))
-    print('before mod', configurations[option])
+    import configparser
+    import ast
 
-    if type(value) == type(configurations[option]):
+    config_from_file = configparser.ConfigParser()
+    config_from_file.read("workflow_input")
 
-        if type(value) == list: # check if lists have the same size!
-            if len(value) == len(configurations[option]):
+    print('Reading input file workflow_input')
+
+    for option, value in config_from_file['VARS'].items():
+        print(f'Option: {option}, Value: {value}')
+        # check if value is the same kind of variable as in default configurations
+        value = ast.literal_eval(value)
+        print('!!!!') 
+        # print(value)
+        # print(type(value))
+        # print(type(configurations[option]))
+        print('before mod', configurations[option])
+
+        if type(value) == type(configurations[option]):
+
+            if type(value) == list: # check if lists have the same size!
+                if len(value) == len(configurations[option]):
+                    configurations[option] = value
+                else:
+                    print(f'Expected {len(configurations[option])} values but got {len(value)} for variable {option}')
+            else: # if not a list just load the data
                 configurations[option] = value
-            else:
-                print(f'Expected {len(configurations[option])} values but got {len(value)} for variable {option}')
-        else: # if not a list just load the data
-            configurations[option] = value
-                
-    else:
-        # checking if the user wrote one value that was suposed to be float but it is int
-        if type(value) == int and type(configurations[option]) == float: 
-            configurations[option] = float(value)
+                    
         else:
-            print(f'Variable {option} in input file is {type(value)} but should be {type(configurations[option])}')
+            # checking if the user wrote one value that was suposed to be float but it is int
+            if type(value) == int and type(configurations[option]) == float: 
+                configurations[option] = float(value)
+            else:
+                print(f'Variable {option} in input file is {type(value)} but should be {type(configurations[option])}')
 
-    print('after mod', configurations[option])
+        print('after mod', configurations[option])
+        
+    return configurations
+    
+    
+# Check if the "workflow_input" file exists in the current directory
+if not os.path.isfile("workflow_input"):
+    print("Error: 'workflow_input' file not found in the current directory.")
+    sys.exit(1)
+else:
+    configurations = load_workflow_input(configurations)
