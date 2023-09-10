@@ -1,0 +1,102 @@
+#!/bin/bash
+#SBATCH -J LiF_ph_disp1.0           # Job name
+#SBATCH -o myjob.o%j       # Name of stdout output file
+#SBATCH -e myjob.e%j       # Name of stderr error file
+#SBATCH -p normal #development          # Queue (partition) name
+#SBATCH -N 10               # Total # of nodes
+#SBATCH -n 560             # Total # of mpi tasks
+#SBATCH -t 1:00:00        # Run time (hh:mm:ss)
+#SBATCH --mail-type=all    # Send email at begin and end of job
+#SBATCH -A PHY22040       # Project/Allocation name (req'd if you have more than 1)
+
+# Any other commands must follow all #SBATCH directives...
+
+export OMP_NUM_THREADS=1
+
+echo "Starting job $SLURM_JOB_ID"
+pwd
+date
+start_time_job=$(date +%s)
+
+check_grep() {
+    local pattern="$1"
+    local file="$2"
+
+    if grep -qi "$pattern" "$file"; then
+        echo "It looks like everything went fine!"
+    else
+        if grep -q "TOTAL" "$file"; then # kernel code does not print Job Done!
+            echo "It looks like everything went fine! - kernel"
+        else
+            echo "Warning: something went wrong!"
+        fi
+    fi
+}
+
+run_command() {
+    local cmd="$1"
+    local output="$2"
+    local timestamp=$(date)
+    local start_time=$(date +%s)
+
+    echo "Now running command '$cmd' > '$output' in directory $(pwd) at $timestamp"
+    eval "$cmd" > "$output"
+
+    local end_time=$(date +%s)
+    local elapsed_time_minutes=$(( (end_time - start_time) / 60 ))
+
+    echo "Command finished. Time spent $elapsed_time_minutes min"
+
+    # check if job was successfull - QE and BGW - does not work on kernel calculations!
+    check_grep "Job done" $output
+    echo " "
+}
+
+module load qe/7.2
+module list
+echo "Starting running QE part"
+
+cd 1-scf/
+#echo "Starting running pw.x on dir  $(pwd)"
+run_command "ibrun pw.x -pd .true. -input scf.in" "scf.out"
+run_command "ibrun pw2bgw.x -pd .true. -input pw2bgw.in" "pw2bgw.out"
+run_command "ibrun ph.x -pd .true. -input ph.in" "ph.out"
+cd ../
+
+for dir in 2-wfn 3-wfnq 4-wfn_co 5-wfn_fi; do
+
+cd $dir
+run_command "ibrun pw.x -pd .true. -input bands.in" "bands.out"
+run_command "ibrun pw2bgw.x -pd .true. -input pw2bgw.in" "pw2bgw.out"
+cd ../
+
+done
+
+module restore
+module load arpack impi intel/19.0.5 phdf5
+module list
+BGWBIN='/home1/08948/rdgrande/packages/BerkeleyGW-3.0.1/bin'
+
+echo "Starting BGW part"
+
+cd 7-epsilon/
+run_command "ibrun $BGWBIN/epsilon.cplx.x" "epsilon.out"
+cd ../
+
+cd 8-sigma/
+run_command "ibrun $BGWBIN/sigma.cplx.x" "sigma.out"
+cd ../
+
+cd 9-kernel/
+run_command "ibrun $BGWBIN/kernel.cplx.x" "kernel.out"
+cd ../
+
+cd 10.1-absorption_mom/
+run_command "ibrun $BGWBIN/absorption.cplx.x" "absorption.out"
+cd ../
+
+echo "Job finished at $(date)"
+end_time_job=$(date +%s)
+elapsed_time_minutes_job=$(( (end_time_job - start_time_job) / 60 ))
+echo "Time spent $elapsed_time_minutes_job min"
+
