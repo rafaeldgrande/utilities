@@ -100,7 +100,7 @@ def write_QE_input(in_pw_name, nbnds, prefix, Natoms, Ntypes, pseudo_dir, calc_t
     arq.write(text)
     arq.close()
     
-    print(f'Finished writing QE input :{in_pw_name}')
+    print(f'Finished writing QE input: {in_pw_name}')
     
 
 def write_pw2bgw_input(pw2bgw_inp, nbnds, prefix, qshift, qgrid):
@@ -239,7 +239,7 @@ def write_sigma(sigma_inp, NminGW, NmaxGW, KPOINTS_FILE, truncation_scheme):
     Kpoints = get_kpoints(KPOINTS_FILE)
 
     text = '\n\nverbosity 3 \n\n'
-    text += '\n\degeneracy_check_override \n\n'
+    text += '\ndegeneracy_check_override \n\n'
     text += 'screening_semiconductor \n\n'
     text += 'exact_static_ch 1 \n\n'
     text += truncation_scheme_input(truncation_scheme)

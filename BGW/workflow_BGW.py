@@ -150,7 +150,7 @@ def GWBSE_write_files():
     os.system('ln -sf ../3-wfnq/wfn.complex 7-epsilon/WFNq')
 
     # sigma
-    print('Linking files for epsilon')
+    print('Linking files for sigma')
     os.system('ln -sf ../2-wfn/wfn.complex 8-sigma/WFN_inner')
     os.system('ln -sf ../2-wfn/rho.complex 8-sigma/RHO')
     os.system('ln -sf ../4-wfn_co/vxc.dat 8-sigma/vxc.dat')
