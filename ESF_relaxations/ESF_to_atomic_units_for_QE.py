@@ -4,7 +4,7 @@ import sys
 
 # Check if the user provided the forces_file as a command-line argument
 if len(sys.argv) < 2:
-    print("Error: Please provide the forces file path as a command-line argument.")
+    print("Error: Provide the forces file path as a command-line argument.")
     sys.exit(1)
 
 # Get forces_file from command-line argument
@@ -27,7 +27,7 @@ def read_excited_forces(excited_state_forces_file, flavor):
     return data
 
 # Read data and convert units
-data = read_excited_forces(forces_file, flavor) * eV2ry / A2bohr
+data = np.real(read_excited_forces(forces_file, flavor) * eV2ry / A2bohr)
 
 # Number of atoms (each atom has 3 components: x, y, z)
 Natoms = int(data.shape[0] / 3)
