@@ -23,11 +23,14 @@ def read_excited_forces(excited_state_forces_file, flavor):
     # flavor = 2 -> RPA_diag_offiag
     # flavor = 3 -> RPA_diag_Kernel
 
-    data = np.loadtxt(excited_state_forces_file, usecols=flavor+1)
+    # data = np.loadtxt(excited_state_forces_file, usecols=flavor+1)
+    data = np.loadtxt(excited_state_forces_file, usecols=flavor+1, dtype=str)  # Read as string
+    data = np.array([complex(x).real for x in data])  # Convert to complex and extract real part
+
     return data
 
 # Read data and convert units
-data = np.real(read_excited_forces(forces_file, flavor) * eV2ry / A2bohr)
+data = read_excited_forces(forces_file, flavor) * eV2ry / A2bohr
 
 # Number of atoms (each atom has 3 components: x, y, z)
 Natoms = int(data.shape[0] / 3)
