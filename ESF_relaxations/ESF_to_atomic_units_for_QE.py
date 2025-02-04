@@ -2,13 +2,20 @@
 import numpy as np
 import sys
 
+print("Usage: python ESF_to_atomic_units_for_QE.py forces_file x")
+print("Read the forces_file from ESF code and convert them to atomic units for Quantum Espresso input files")
+print("x is the exciton concentration in exciton / unit cell")
+
 # Check if the user provided the forces_file as a command-line argument
-if len(sys.argv) < 2:
-    print("Error: Provide the forces file path as a command-line argument.")
+if len(sys.argv) != 3:
+    print("Error: Usage: python ESF_to_atomic_units_for_QE.py forces_file x")
     sys.exit(1)
 
 # Get forces_file from command-line argument
 forces_file = sys.argv[1]
+
+# exciton concentration
+x = float(sys.argv[2])
 
 flavor = 2
 
@@ -30,7 +37,7 @@ def read_excited_forces(excited_state_forces_file, flavor):
     return data
 
 # Read data and convert units
-data = read_excited_forces(forces_file, flavor) * eV2ry / A2bohr
+data = x * read_excited_forces(forces_file, flavor) * eV2ry / A2bohr
 
 # Number of atoms (each atom has 3 components: x, y, z)
 Natoms = int(data.shape[0] / 3)
