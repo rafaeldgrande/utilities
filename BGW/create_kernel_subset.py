@@ -25,6 +25,11 @@ with h5py.File("bsemat.h5", "r") as f_orig:
     # Read original number of valence and conduction bands
     nv = f_orig["/bse_header/bands/nvb"][()]
     nc = f_orig["/bse_header/bands/ncb"][()]
+    
+    if nc < args.mc:
+        raise ValueError(f"New number of conduction bands ({args.mc}) is greater than the original number ({nc}).")
+    if nv < args.mv:
+        raise ValueError(f"New number of valence bands ({args.mv}) is greater than the original number ({nv}).")
 
     print(f"Original kernel: nv = {nv}, nc = {nc}")
     print(f"New kernel: nv = {args.mv}, nc = {args.mc}")
