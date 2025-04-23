@@ -1,8 +1,22 @@
 
 import numpy as np
 
-Nkx, Nky, Nkz = 4,4,4
-qx, qy, qz = 0, 0, 0
+# Nkx, Nky, Nkz, qx, qy, qz passed as command line arguments
+# Usage: python gera_k_grid.py Nkx Nky Nky qx qy qz
+
+import sys
+if len(sys.argv) != 6:
+    print("Usage: python gera_k_grid.py Nkx Nky Nkz qx qy qz")
+    sys.exit(1)
+Nkx = int(sys.argv[1])
+Nky = int(sys.argv[2])
+Nkz = int(sys.argv[3])
+qx = float(sys.argv[4])
+qy = float(sys.argv[5])
+qz = float(sys.argv[6])
+
+# Nkx, Nky, Nkz = 27, 27, 1
+# qx, qy, qz = 0, 0, 0
 
 Nk_tot = Nkx * Nky * Nkz
 
