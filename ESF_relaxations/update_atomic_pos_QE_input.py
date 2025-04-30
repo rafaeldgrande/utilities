@@ -1,6 +1,11 @@
 
 import sys
 
+''' This script replaces the ATOMIC_POSITIONS section in a Quantum Espresso input file with new atomic positions
+
+usage:
+python replace_atomic_positions.py <qe_input_file> <atomic_positions_file> <output_file>'''
+
 def read_atomic_positions_from_qe_input(file_path):
     """Reads the atomic positions section from a Quantum Espresso input file."""
     with open(file_path, 'r') as file:
