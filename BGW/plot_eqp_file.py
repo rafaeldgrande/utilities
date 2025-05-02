@@ -5,18 +5,6 @@ import matplotlib.pyplot as plt
 import argparse
 parser = argparse.ArgumentParser()
 
-Nval = 13
-
-def dists_symm(Path):
-    
-    Dists_symm = [0.0]
-    for i in range(1, len(Path)):
-        dr = np.linalg.norm( np.array(Path[i]) - np.array(Path[i-1]) )
-        Dists_symm.append(Dists_symm[-1] + dr)
-        
-    return Dists_symm
-
-
 def read_eqp_dat_file(eqp_file):
     
     bands_dft, bands_qp = [], []
@@ -58,17 +46,19 @@ if __name__ == "__main__":
 
     # Gettting parameters
     
+    print('''Usage : python plot_eqp_file.py -eqp eqp.dat -symm symm_points_file -Nval Nval
+          where eqp.dat is the file with the band structure from BGW
+          symm_points_file is the file with the high symmetry points
+          Nval is the index of last valence band (starting from 1)''')
+    
     # -eqp_file eqp.dat file from BGW 
     # -symm_points File with list of high symmetry points
+    # -Nval Number of valence band
     parser.add_argument("-eqp", "--eqp_file", help="eqp.dat file from BGW ")
     parser.add_argument("-symm", "--symm_points_file", help="File with list of high symmetry points")
+    parser.add_argument("-Nval", "--Nval", help="Number of valence band")
 
     args = parser.parse_args()
-
-    # print( "eqp.dat file  {} \nsymm points file {}".format(
-    #         args.eqp_file,
-    #         args.symm_points_file
-    #         ))
 
     if args.eqp_file == None:
         print("Using default name for eqp file : eqp.dat")
@@ -78,44 +68,62 @@ if __name__ == "__main__":
         print(f"eqp file to be read {eqp_file}")
         
     if args.symm_points_file == None:
-        print("Using default name for high symmetry points file: symm_points_file")
-        symm_points_file = "symm_points_file"    
+        print("symm points file not given. Not using it")
+        symm_points_file = None    
     else:
         symm_points_file = args.symm_points_file
         print(f"high symmetry points file to be read: {symm_points_file}")    
+    
+    if args.Nval == None:
+        print("Nval not given. Not shifting bands")
+        shift_bands = False
+    else:
+        Nval = int(args.Nval)
+        print(f"Setting maximum valence band {Nval} to zero")
+        shift_bands = True
 
 
     bands_dft, bands_qp, Kpoints, Nk, band_indexes = read_eqp_dat_file(eqp_file)
     K = K_path_from_k_pts_list(Kpoints)
 
-    Nval_index = np.where(band_indexes == Nval)[0][0]
-    E0_dft = np.max(bands_dft[Nval_index, :])
-    E0_qp = np.max(bands_qp[Nval_index, :])
-    bands_dft = bands_dft - E0_dft
-    bands_qp = bands_qp - E0_qp
-
-# Gamma = [0, 0, 0]
-# X = [1/2, 0, 0]
-# Y = [0, 1/2, 0]
-# Z = [0, 0, 1/2]
-# M = [1/2, 1/2, 0]
-# N = [0, 1/2, 1/2]
-# O = [1/2, 0, 1/2]
-# R = [1/2, 1/2, 1/2]
-
-# # Caminho R-Gamma-X-M-Gamma
-# Path_tetra = [Gamma, X, M, R, O, Z, Gamma]
-# Names_tetra = [r'$\mathrm{\Gamma}$', 
-#          r'$\mathrm{X}$',
-#          r'$\mathrm{M}$',
-#          r'$\mathrm{R}$',
-#          r'$\mathrm{O}$',
-#          r'$\mathrm{Z}$',
-#          r'$\mathrm{\Gamma}$']                    
+    if shift_bands:
+        Nval_index = np.where(band_indexes == Nval)[0][0]
+        E0_dft = np.max(bands_dft[Nval_index, :])
+        E0_qp = np.max(bands_qp[Nval_index, :])
+        bands_dft = bands_dft - E0_dft
+        bands_qp = bands_qp - E0_qp
+        
+    
+    if symm_points_file != None:
+        
+        print('Reading high symmetry K points file')
+        with open(symm_points_file) as f:
+            lines = f.readlines()
+        f.close()
+        
+        K_symm = []
+        K_symm_labels = []
+        for line in lines:
+            line_split = line.split()
+            if len(line_split) == 4:
+                kx, ky, kz = float(line_split[1]), float(line_split[2]), float(line_split[3])
+                K_symm.append([kx, ky, kz])
+                K_symm_labels.append(line_split[0])
+                
+        K_symm = np.array(K_symm)
+        print(f'Number of high symmetry points {len(K_symm)}')
+        
+        K_symm_dists = K_path_from_k_pts_list(K_symm)                   
 
     for iband in range(np.shape(bands_dft)[0]):
         plt.plot(K, bands_dft[iband, :], color='gray', alpha = 0.5)
         plt.plot(K, bands_qp[iband, :], color='red', alpha = 1.0)
+    
+    if symm_points_file != None:
+        plt.xticks(K_symm_dists, K_symm_labels)
+        plt.xlim([0, K_symm_dists[-1]])
+    plt.grid()
+    
     plt.show()
   
 # plt.xticks(K_path_from_k_pts_list(Path_ortho), Names_ortho)
