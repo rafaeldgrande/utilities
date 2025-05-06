@@ -5,7 +5,7 @@ import numpy as np
 # Usage: python gera_k_grid.py Nkx Nky Nky qx qy qz
 
 import sys
-if len(sys.argv) != 6:
+if len(sys.argv) != 7:
     print("Usage: python gera_k_grid.py Nkx Nky Nkz qx qy qz")
     sys.exit(1)
 Nkx = int(sys.argv[1])
