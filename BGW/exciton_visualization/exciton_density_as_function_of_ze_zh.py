@@ -1,0 +1,386 @@
+
+
+''' This code calculates rho(ze, zh) for a given set of exciton coefficients and wavefunctions.
+    where rho(ze, zh) = integral dx_e dy_e dx_h dy_h |Psi(x_e, y_e, z_e; x_h, y_h, z_h)|^2
+    
+    it reads exciton coefficients from eigenvectors.h5 and wavefunctions from WFN.h5
+    and saves the result in RHO_ZE_ZH_data.h5'''
+
+import numpy as np
+import matplotlib.pyplot as plt
+import h5py
+from scipy.fft import ifftn
+import time
+from multiprocessing import Pool
+import argparse
+import psutil
+
+# pip install numpy matplotlib h5py scipy psutil
+
+parser = argparse.ArgumentParser()
+parser.add_argument('--num_processes', type=int, default=16, help='Number of parallel processes to use')
+args = parser.parse_args()
+
+num_processes = args.num_processes
+
+# Start the timer
+start_time = time.time()
+
+WFN_file = 'WFN.h5'
+eigenvectors_file = 'eigenvectors.h5'
+i_exc = 0
+q_vec = np.array([0, 0, 0])
+
+precision_complex = np.complex64 # or use np.complex128 for more precision
+
+zmin_set_zero = 8.5
+zmax_set_zero = 30 - 1.5 # Lz - 1.5
+Lz = 30
+
+def set_z_zero(z):
+    if zmin_set_zero < z < zmax_set_zero:
+        return False
+    else:
+        return True
+
+
+
+run_parallel = True
+# num_processes = 16  # You can modify this value or make it user-configurable
+if run_parallel:
+    print(f"Running in parallel with {num_processes} processes.")
+else:
+    print("Running in serial mode.")
+
+# limit Gvecs for tests purposes
+limitGvecs = False
+maxGs = 100
+if limitGvecs:
+    print("Limiting G-vectors to", maxGs)
+else:
+    print("Not limiting G-vectors")
+
+# limit grid size for tests purposes
+limitGrid = True
+Ngrid_teste = 4
+if limitGrid:
+    print("Limiting grid size to", Ngrid_teste)
+else:
+    print("Not limiting grid size")
+    
+def check_available_memory():
+    # Get the total system memory (RAM) in bytes
+    total_memory = psutil.virtual_memory().total
+    
+    # Get the available system memory (RAM) in bytes
+    available_memory = psutil.virtual_memory().available
+
+    # Convert bytes to GB for easier reading
+    total_memory_gb = total_memory / (1024 ** 3)  # Convert bytes to GB
+    available_memory_gb = available_memory / (1024 ** 3)  # Convert bytes to GB
+
+    print(f"Total memory: {total_memory_gb:.2f} GB")
+    print(f"Available memory: {available_memory_gb:.2f} GB")
+
+    
+def calculate_memory_Psi(Nx, Ny, num_processes, precision_complex):
+    # Calculate the size of one Psi in bytes
+    size_one_psi = Nx * Ny * Nx * Ny * np.dtype(precision_complex).itemsize  # Item size in bytes
+
+    # Total memory required for all processes
+    total_memory = size_one_psi * num_processes  # Total memory in bytes
+
+    # Convert to MB and GB for easier reading
+    total_memory_mb = total_memory / (1024 ** 2)  # Convert bytes to MB
+    total_memory_gb = total_memory / (1024 ** 3)  # Convert bytes to GB
+
+    # Print memory usage
+    print(f"Each exciton wavefunction calculation requires {size_one_psi / (1024 ** 2):.2f} MB")
+    print(f"Total memory required for {num_processes} processes: {total_memory_mb:.2f} MB ({total_memory_gb:.2f} GB)")
+
+def split_coeffs(coeffs, gvecs, ngk):
+    """
+    Split the flattened coefficients array into a list of arrays, one per k-point.
+    
+    Parameters:
+      coeffs (np.ndarray): Coefficients array with shape (n_bands, 1, total_G).
+      ngk (array-like): 1D array of length nk, where each element is the number of G-vectors for that k-point.
+      
+    Returns:
+      list: A list of length nk, where each element is an array of shape (n_bands, 1, ng),
+            with ng being the number of G-vectors for that k-point.
+    """
+    list_coeffs = []
+    list_gvecs = []
+    start = 0
+    for count in ngk:
+        # Extract a slice for this k-point.
+        # coeffs[:, 0, start:start+count] has shape (n_bands, count).
+        sub_array = coeffs[:, 0, start:start+count]
+        # Add back the singleton dimension in the second axis to get (n_bands, 1, count)
+        sub_array = sub_array[:, np.newaxis, :] # shape (n_bands, 1, count)
+        gvecs_sub_array = gvecs[start:start+count, :] # shape (count, 3)
+        
+        if limitGvecs:
+            # Limit the number of G-vectors for testing purposes
+            sub_array = sub_array[:, :, :maxGs]
+            gvecs_sub_array = gvecs_sub_array[:maxGs, :]
+            
+        list_coeffs.append(sub_array)
+        list_gvecs.append(gvecs_sub_array)
+        
+        start += count
+    return list_coeffs, list_gvecs
+
+def wavefunction_for_k_point(coeffs, gvecs, grid_size):
+    """Compute real-space wavefunction via inverse FFT."""
+    n_bands, _, _ = coeffs.shape
+    psi_k_point = np.zeros((n_bands, *grid_size), dtype=precision_complex)
+
+    for n in range(n_bands):
+        # Place coefficients in a 3D reciprocal-space grid
+        grid = np.zeros(grid_size, dtype=precision_complex)
+        for i, G in enumerate(gvecs):
+            grid[tuple(G)] = coeffs[n, 0, i]
+
+        # Inverse FFT to get real-space wavefunction
+        psi_k_point[n] = ifftn(grid)
+
+    return psi_k_point
+
+def wavefunction_real_space(COEFFS, GVECS, grid_size):
+    """
+    Computes the wavefunction in real space for a given set of coefficients and G-vectors.
+    Parameters:
+        COEFFS (numpy.ndarray): A 3D array of shape (n_kpoints, n_bands, n_coeffs) containing 
+                                the coefficients of the wavefunctions in reciprocal space.
+        GVECS (numpy.ndarray): A 2D array of shape (n_kpoints, n_coeffs, 3) containing the 
+                               G-vectors corresponding to the coefficients for each k-point.
+        grid_size (tuple): A tuple of three integers specifying the size of the real-space grid 
+                           (nx, ny, nz).
+    Returns:
+        numpy.ndarray: A 4D array of shape (n_kpoints, n_bands, nx, ny, nz) containing the 
+                       wavefunctions in real space, represented as complex numbers.
+    """
+    n_kpoints, n_bands, _ = COEFFS.shape
+    psi_real_space = np.zeros((n_kpoints, n_bands, *grid_size), dtype=precision_complex)
+    
+    for ik in range(n_kpoints):
+        psi_real_space[ik] = wavefunction_for_k_point(COEFFS[ik], GVECS[ik], grid_size)
+
+    return psi_real_space
+
+def exciton_wavefunction_fixed_ze_zh(A_vck, psi_real, kpoints, q_vec, grid_size, Nval, ze_idx, zh_idx):
+    """
+    Compute Psi(x_e, y_e, x_h, y_h) for fixed z_e and z_h.
+
+    Parameters:
+      A_vck: Exciton coefficients with shape (nk, nc, nv)
+      psi_real: Real-space wavefunctions with shape (nk, Nbnds, Nx, Ny, Nz)
+      kpoints: Array of k-point coordinates with shape (nk, 3)
+      q_vec:   Momentum transfer vector (3,)
+      grid_size: Tuple (Nx, Ny, Nz) for the real-space grid
+      Nval:    Number of valence bands (highest valence band index is Nval-1)
+      ze_idx:  Index of fixed z_e in the grid (0 ≤ ze_idx < Nz)
+      zh_idx:  Index of fixed z_h in the grid (0 ≤ zh_idx < Nz)
+
+    Returns:
+      Psi: 4D exciton wavefunction with shape (Nx, Ny, Nx, Ny)
+    """
+    nk, nc, nv = A_vck.shape
+    Nx, Ny, Nz = grid_size
+
+    # Initialize Psi(x_e, y_e, x_h, y_h)
+    Psi = np.zeros((Nx, Ny, Nx, Ny), dtype=precision_complex)
+
+    # Generate real-space grids for electron and hole
+    x = np.linspace(0, 1, Nx, endpoint=False)
+    y = np.linspace(0, 1, Ny, endpoint=False)
+    X, Y = np.meshgrid(x, y, indexing='ij')
+    r_grid_xy = np.stack((X, Y), axis=-1)  # Shape: (Nx, Ny, 2)
+
+    # Iterate over k-points, conduction and valence bands
+    for k in range(nk):
+        phase_e = np.exp(1j * (r_grid_xy[...,0] * kpoints[0, k] + r_grid_xy[...,1] * kpoints[1, k]))
+        phase_h = np.exp(-1j * (r_grid_xy[...,0] * (kpoints[0, k] + q_vec[0]) +
+                                r_grid_xy[...,1] * (kpoints[1, k] + q_vec[1])))
+
+        for c in range(nc):
+            idx_c = Nv + c  # Conduction band index
+            phi_ck = psi_real[k, idx_c, :, :, ze_idx]  # Electron wavefunction at fixed z_e
+            
+            for v in range(nv):
+                idx_v = Nv - 1 - v  # Valence band index
+                phi_vk = psi_real[k, idx_v, :, :, zh_idx]  # Hole wavefunction at fixed z_h
+
+                # Compute the wavefunction contributions
+                electron_part = phi_ck * phase_e
+                hole_part = phi_vk * phase_h
+
+                # Outer product: electron part on (x_e, y_e), hole part on (x_h, y_h)
+                contrib = A_vck[k, c, v] * np.einsum("ij,kl->ijkl", electron_part, np.conj(hole_part))
+                Psi += contrib
+
+    return Psi
+
+
+def compute_exciton_wavefunction(params, verbose=False):
+    """
+    Compute the exciton wavefunction for given parameters.
+
+    This function processes a specific combination of indices and computes
+    the exciton wavefunction for fixed electron and hole positions on a grid.
+    It returns the indices and the computed sum of the absolute values of the
+    wavefunction.
+
+    Args:
+        params (tuple): A tuple containing the following elements:
+            i (int): Index corresponding to the first dimension.
+            j (int): Index corresponding to the second dimension.
+            ze_idx (int): Index for the fixed electron position.
+            zh_idx (int): Index for the fixed hole position.
+
+    Returns:
+        tuple: A tuple containing:
+            i (int): The first index from the input.
+            j (int): The second index from the input.
+            float: The sum of the absolute values of the computed wavefunction.
+    """
+    
+    time_start_here = time.time()
+    i, j, ze_idx, zh_idx = params
+    # print(f"Processing (ze_idx={ze_idx}, zh_idx={zh_idx}) at index ({i}, {j})...")
+    Psi_2d = exciton_wavefunction_fixed_ze_zh(A_vck[i_exc], phi, kpoints, q_vec, grid_size, Nval, ze_idx, zh_idx)
+    Psi_2d_sum_sq = np.sum(np.abs(Psi_2d)**2)
+    time_end_here = time.time()
+    if verbose:
+        print(f"Time taken for (ze_idx={ze_idx}, zh_idx={zh_idx}) at index ({i}, {j}): {time_end_here - time_start_here:.2f} seconds")
+    return i, j, Psi_2d_sum_sq  # Return index and computed value
+
+def run_parallel(num_processes, RHO_ZE_ZH):
+    with Pool(processes=num_processes) as pool:
+        results = pool.map(compute_exciton_wavefunction, params_list)
+
+    for i, j, abs_psi2 in results:
+        RHO_ZE_ZH[i, j] = abs_psi2
+        
+    return RHO_ZE_ZH
+
+# Open the HDF5 file
+print("Opening eigenvectors file to read exciton coefficients...")
+with h5py.File(eigenvectors_file, "r") as f:
+    A_vck = f['exciton_data/eigenvectors'][()]   # Adjust the key name based on actual structure
+A_vck = A_vck[0, :, :, :, :, 0, 0] + 1j * A_vck[0, :, :, :, :, 0, 1]
+Nexc, Nk, Nc, Nv = A_vck.shape
+print("Exciton coefficients loaded.")
+print("A_vck shape:", A_vck.shape)
+print("Nk, Nc, Nv:", Nk, Nc, Nv)
+print("Nexc:", Nexc)
+
+# Reading WFN file
+print("Opening WFN file to read wavefunction data...")
+with h5py.File(WFN_file, "r") as f:
+    # coeffs_temp = f["/wfns/coeffs"][:]  # Check actual dataset name
+    gvecs = f["/wfns/gvecs"][:]  # Reciprocal lattice vectors
+    kpoints = f["/mf_header/kpoints/rk"][:]  # shape (3, nrk)
+    kpoints = kpoints.T  # shape (nrk, 3)
+    FFTgrid = f["/mf_header/gspace/FFTgrid"][:]
+    ngk = f["/mf_header/kpoints/ngk"][:] # shape (nrk,)
+    ifmax = f["/mf_header/kpoints/ifmax"][:]
+print("Wavefunction data loaded.")
+
+# Extract grid size and process coefficients
+Nval = ifmax[0, 0]
+grid_size = tuple(FFTgrid)
+Nx, Ny, Nz = grid_size
+min_idx = Nval - Nv
+max_idx = Nval + Nc
+
+with h5py.File(WFN_file, "r") as f:
+    coeffs = f["/wfns/coeffs"][min_idx:max_idx, :, :, 0] + 1j * f["/wfns/coeffs"][min_idx:max_idx, :, :, 1]
+    # shape of coeffs is (Nval+Nc-Nv, nk, 1, ng)
+
+# coeffs = coeffs_temp[min_idx:max_idx, :, :, 0] + 1j * coeffs_temp[min_idx:max_idx, :, :, 1]
+print(f"Grid size: {grid_size}")
+
+dz = Lz / Nz
+z_real_value = np.arange(0, Lz, dz)
+
+print("Splitting coefficients by k-points...")
+COEFFS, GVECS = split_coeffs(coeffs, gvecs, ngk)
+del coeffs, gvecs  # Free up memory
+
+# COEFSS shape is (nk, n_bands, 1, ng)
+# print max value of ng in COEFFS
+print(f"Max number of G-vectors: {max(ngk)}")
+
+print('################################################')
+calculate_memory_Psi(Nx, Ny, num_processes, precision_complex)
+check_available_memory()
+print('################################################')
+
+print("Coefficients split completed.")
+
+# Compute wavefunctions in real space
+print("Computing wavefunctions in real space...")
+phi = wavefunction_real_space(COEFFS, GVECS, grid_size)
+print("Real-space wavefunctions computed.")
+
+# Create lists of ZE_idx and ZH_idx
+print("Generating ZE_idx and ZH_idx arrays...")
+
+if limitGrid:
+    Nelectron = Ngrid_teste
+    Nhole = Ngrid_teste
+else:
+    Nelectron = Nz
+    Nhole = Nz
+
+ZE_idx = np.linspace(0, Nz-1, Nelectron, dtype=int)
+ZH_idx = np.linspace(0, Nz-1, Nhole, dtype=int)
+print(f"ZE_idx: {ZE_idx}")
+print(f"ZH_idx: {ZH_idx}")
+
+RHO_ZE_ZH = np.zeros((len(ZE_idx), len(ZH_idx)))  # Preallocate array
+
+# Prepare arguments for parallel processing
+# print("Preparing parameters for parallel computation...")
+# params_list = [(i, j, ze_idx, zh_idx) for i, ze_idx in enumerate(ZE_idx) for j, zh_idx in enumerate(ZH_idx)]
+
+params_list = []
+for i, ze_idx in enumerate(ZE_idx):
+    if not set_z_zero(z_real_value[ze_idx]):
+        continue
+    for j, zh_idx in enumerate(ZH_idx):
+        if not set_z_zero(z_real_value[zh_idx]):
+            continue
+        params_list.append((i, j, ze_idx, zh_idx))
+        
+print(f"ZE_idx shape: {ZE_idx.shape}")
+print(f"Total number of abs(Psi(ze, zh))**2 we will compute: {len(params_list)}")
+
+
+if __name__ == "__main__":
+
+    if run_parallel:
+        print("Running parallel computation...")
+        RHO_ZE_ZH = run_parallel(num_processes, RHO_ZE_ZH)
+    else:
+        print("Running serial computation...")
+        for params in params_list:
+            i, j, abs_psi2 = compute_exciton_wavefunction(params)
+            RHO_ZE_ZH[i, j] = abs_psi2
+
+# Save the results in an HDF5 file
+print("Saving results to RHO_ZE_ZH_data.h5...")
+with h5py.File("RHO_ZE_ZH_data.h5", "w") as h5f:
+    h5f.create_dataset("RHO_ZE_ZH", data=RHO_ZE_ZH)  # Main 3D array
+    h5f.create_dataset("ZE_idx", data=ZE_idx)        # Save ZE_idx for reference
+    h5f.create_dataset("ZH_idx", data=ZH_idx)        # Save ZH_idx for reference
+print("Data saved to RHO_ZE_ZH_data.h5.")
+print("RHO_ZE_ZH shape:", RHO_ZE_ZH.shape)
+
+# End timer
+end_time = time.time()
+elapsed_time = end_time - start_time
+print(f"Total execution time: {elapsed_time:.2f} seconds")
