@@ -17,10 +17,20 @@ import psutil
 
 # pip install numpy matplotlib h5py scipy psutil
 
+def str2bool(v):
+    if isinstance(v, bool):
+        return v
+    if v.lower() in ('yes', 'true', 't', '1'):
+        return True
+    elif v.lower() in ('no', 'false', 'f', '0'):
+        return False
+    else:
+        raise argparse.ArgumentTypeError('Boolean value expected.')
+
 parser = argparse.ArgumentParser()
 
-parser.add_argument('--run_parallel', type=bool, default=True, help='Run in parallel or serial mode')
-parser.add_argument('--num_processes', type=int, default=16, help='Number of parallel processes to use')
+parser.add_argument('--run_parallel', type=str2bool, default=True, help='Run in parallel or serial mode')
+parser.add_argument('--num_processes', type=int, default=1, help='Number of parallel processes to use')
 
 parser.add_argument('--verbose', type=int, default=0, help='Enable verbose output')
 
@@ -33,14 +43,17 @@ parser.add_argument('--zmin_set_zero', type=float, default=8.5, help='Minimum z 
 parser.add_argument('--zmax_set_zero', type=float, default=30 - 1.5, help='Maximum z value to set to zero')
 parser.add_argument('--Lz', type=float, default=30, help='Length in z direction')
 
-parser.add_argument('--limitGvecs', type=bool, default=True, help='Limit G-vectors for testing purposes')
+parser.add_argument('--limitGvecs', type=str2bool, default=False, help='Limit G-vectors for testing')
 parser.add_argument('--maxGs', type=int, default=100, help='Maximum number of G-vectors for testing purposes')
 
-parser.add_argument('--limitGrid', type=bool, default=False, help='Limit grid size for testing purposes')
+parser.add_argument('--limitGrid', type=str2bool, default=False, help='Limit grid size for testing')
 parser.add_argument('--Ngrid_teste', type=int, default=4, help='Grid size for testing purposes')
 
 parser.add_argument('--i_exc', type=int, default=0, help='Index of exciton to compute')
+parser.add_argument('--limit_BSE_sum_up_to_value', type=float, default=1.0, help='Limit for BSE sum up to value')
 # parser.add_argument('--q_vec', type=float, nargs=3, default=[0, 0, 0], help='Momentum transfer vector (q_x, q_y, q_z)')
+
+# usage: python exciton_density_as_function_of_ze_zh.py --run_parallel True --num_processes 16 --verbose 1 --WFN_file WFN.h5 --eigenvectors_file eigenvectors.h5 --zmin_set_zero 8.5 --zmax_set_zero 30 --Lz 30 --limitGvecs True --maxGs 100 --limitGrid False --Ngrid_teste 4 --i_exc 0
 
 args = parser.parse_args()
 
@@ -58,11 +71,11 @@ limitGvecs = args.limitGvecs
 maxGs = args.maxGs
 limitGrid = args.limitGrid
 Ngrid_teste = args.Ngrid_teste
-
+limit_BSE_sum_up_to_value = args.limit_BSE_sum_up_to_value
 # Start the timer
 start_time = time.time()
 
-q_vec = np.array([0, 0, 0])
+q_vec = np.array([0, 0, 0])  # q shift between electron and hole
 
 precision_complex = np.complex64 # or use np.complex128 for more precision
 
@@ -87,6 +100,55 @@ if limitGrid:
     print("Limiting grid size to", Ngrid_teste)
 else:
     print("Not limiting grid size")
+    
+def top_n_indexes_all(array, limit_BSE_sum_up_to_value):
+    """
+    Identify the top N indexes in a 3D array based on their values, and return
+    the indexes up to the point where the cumulative sum of squared values exceeds
+    a specified limit.
+    Parameters:
+    -----------
+    array : numpy.ndarray
+        A 3D numpy array containing the values to be analyzed.
+    limit_BSE_sum_up_to_value : float
+        The threshold for the cumulative sum of squared values. The function
+        will stop collecting indexes once this threshold is exceeded.
+    Returns:
+    --------
+    list of tuple
+        A list of tuples representing the indexes of the top values in the array,
+        ordered by descending value. The list is truncated to include only the
+        indexes needed to reach the specified cumulative sum threshold.
+    """
+    
+    # Flatten the array
+    flat_array = array.flatten()
+    
+    # array size
+    N = len(flat_array)
+    
+    # Get the indexes of the top N values in the flattened array
+    flat_indexes = np.argpartition(flat_array, -N)[-N:]
+    
+    # Sort these indexes by the values they point to, in descending order
+    sorted_indexes = flat_indexes[np.argsort(-flat_array[flat_indexes])]
+    
+    # Convert the 1D indexes back to 3D indexes
+    top_indexes = np.unravel_index(sorted_indexes, array.shape)
+    
+    # Combine the indexes into a list of tuples
+    top_indexes = list(zip(*top_indexes))
+    
+    # now checking how many values we need to store
+    counter_indexes = 0
+    sum_abs_Akcv2 = 0
+    for index in top_indexes:
+        counter_indexes += 1 
+        sum_abs_Akcv2 += array[index[0], index[1], index[2]]**2
+        if sum_abs_Akcv2 > limit_BSE_sum_up_to_value:
+            break
+
+    return top_indexes[:counter_indexes]
     
 def check_available_memory():
     # Get the total system memory (RAM) in bytes
@@ -207,44 +269,83 @@ def exciton_wavefunction_fixed_ze_zh(A_vck, psi_real, kpoints, q_vec, grid_size,
     Returns:
       Psi: 4D exciton wavefunction with shape (Nx, Ny, Nx, Ny)
     """
-    nk, nc, nv = A_vck.shape
-    Nx, Ny, Nz = grid_size
 
     # Initialize Psi(x_e, y_e, x_h, y_h)
+    
+    if verbose > 1:
+        print(f"Computing Psi for ze_idx={ze_idx}, zh_idx={zh_idx}...")
+        time_start_compute_psi = time.time()
+        
+        delta_t_phase_calcs = 0.0
+        delta_t_kcv_loop = 0.0
+    
     Psi = np.zeros((Nx, Ny, Nx, Ny), dtype=precision_complex)
-
-    # Generate real-space grids for electron and hole
-    x = np.linspace(0, 1, Nx, endpoint=False)
-    y = np.linspace(0, 1, Ny, endpoint=False)
-    X, Y = np.meshgrid(x, y, indexing='ij')
-    r_grid_xy = np.stack((X, Y), axis=-1)  # Shape: (Nx, Ny, 2)
+    
 
     # Iterate over k-points, conduction and valence bands
-    for k in range(nk):
+    for k in range(Nk):
+        
+        time_phase_start = time.time()
         phase_e = np.exp(1j * (r_grid_xy[...,0] * kpoints[0, k] + r_grid_xy[...,1] * kpoints[1, k]))
         phase_h = np.exp(-1j * (r_grid_xy[...,0] * (kpoints[0, k] + q_vec[0]) +
                                 r_grid_xy[...,1] * (kpoints[1, k] + q_vec[1])))
+        time_phase_end = time.time()
+        if verbose > 1:
+            delta_t_phase_calcs += time_phase_end - time_phase_start
+        
+        if verbose > 1:    
+            time_kcv_start = time.time()
+        
+        psi_k = psi_real[k] # Shape: (Nbands, Nx, Ny, Nz)
 
-        for c in range(nc):
-            idx_c = Nv + c  # Conduction band index
-            phi_ck = psi_real[k, idx_c, :, :, ze_idx]  # Electron wavefunction at fixed z_e
+        # for c in range(Nc):
+        #     idx_c = Nv + c  # Conduction band index
+        #     phi_ck = psi_k[idx_c, :, :, ze_idx]  # Electron wavefunction at fixed z_e
             
-            for v in range(nv):
-                idx_v = Nv - 1 - v  # Valence band index
-                phi_vk = psi_real[k, idx_v, :, :, zh_idx]  # Hole wavefunction at fixed z_h
+        #     for v in range(Nv):
+        #         idx_v = Nv - 1 - v  # Valence band index
+        #         phi_vk = psi_k[idx_v, :, :, zh_idx]  # Hole wavefunction at fixed z_h
 
-                # Compute the wavefunction contributions
-                electron_part = phi_ck * phase_e
-                hole_part = phi_vk * phase_h
+        #         # Compute the wavefunction contributions
+        #         electron_part = phi_ck * phase_e
+        #         hole_part = phi_vk * phase_h
 
-                # Outer product: electron part on (x_e, y_e), hole part on (x_h, y_h)
-                contrib = A_vck[k, c, v] * np.einsum("ij,kl->ijkl", electron_part, np.conj(hole_part))
-                Psi += contrib
+        #         # Outer product: electron part on (x_e, y_e), hole part on (x_h, y_h)
+        #         # contrib = A_vck[k, c, v] * np.einsum("ij,kl->ijkl", electron_part, np.conj(hole_part))
+        #         contrib = A_vck[k, c, v] * (electron_part[:, :, None, None] * np.conj(hole_part)[None, None, :, :])
+
+        #         Psi += contrib
+        
+        phi_ck_all = psi_k[Nv:Nv+Nc, :, :, ze_idx] * phase_e[None, :, :]  # shape: (Nc, Nx, Ny)
+        phi_vk_all = psi_k[Nv-1::-1, :, :, zh_idx] * phase_h[None, :, :]
+        
+        if abs(limit_BSE_sum_up_to_value - 1.0) < 1e-10: # here limit_BSE_sum_up_to_value = 1.0
+            for c in range(Nc):
+                for v in range(Nv):
+                    contrib = A_vck[k, c, v] * (phi_ck_all[c][:, :, None, None] * np.conj(phi_vk_all[v])[None, None, :, :])
+                    Psi += contrib
+        else:
+            for c in range(Nc):
+                for v in range(Nv):
+                    if (k, c, v) not in top_kcv_set:
+                        continue
+                    contrib = A_vck[k, c, v] * (phi_ck_all[c][:, :, None, None] * np.conj(phi_vk_all[v])[None, None, :, :])
+                    Psi += contrib
+         
+        if verbose > 1:       
+            time_kcv_end = time.time()
+            delta_t_kcv_loop += time_kcv_end - time_kcv_start
+
+    if verbose > 1:
+        time_end_compute_psi = time.time()
+        print(f"Time taken to compute Psi for ze_idx={ze_idx}, zh_idx={zh_idx}: {time_end_compute_psi - time_start_compute_psi:.2f} seconds")
+        print(f"Time taken for phase calculations: {delta_t_phase_calcs:.2f} seconds")
+        print(f"Time taken for kcv loop: {delta_t_kcv_loop:.2f} seconds")
 
     return Psi
 
 
-def compute_exciton_wavefunction(params, verbose):
+def compute_exciton_wavefunction(params):
     """
     Compute the exciton wavefunction for given parameters.
 
@@ -278,13 +379,17 @@ def compute_exciton_wavefunction(params, verbose):
     return i, j, Psi_2d_sum_sq  # Return index and computed value
 
 def calc_parallel(num_processes, RHO_ZE_ZH, verbose):
-    params_chunks = np.array_split(params_list, num_processes)
+    chunck_size = len(params_list) // num_processes + 1 
+    params_chunks = np.array_split(params_list, chunck_size)
     total_processed = 0
+    
+    print(f"Dividing {len(params_list)} ze,zh pairs into {len(params_chunks)} chunks for parallel processing.")
+    print(f"Each chunk will handle {len(params_chunks)} ze,zh pairs at most")
 
     with Pool(processes=num_processes) as pool:
         for param_chunk in params_chunks:
             # Process the chunk in parallel
-            partial_results = pool.map(compute_exciton_wavefunction, param_chunk, verbose)
+            partial_results = pool.map(compute_exciton_wavefunction, param_chunk)
 
             # Update the output array
             for i, j, abs_psi2 in partial_results:
@@ -304,7 +409,7 @@ def calc_serial(RHO_ZE_ZH, verbose=False):
         print(f"Total iterations to be calculated: {total_iterations}")
     
     for params in params_list:
-        i, j, abs_psi2 = compute_exciton_wavefunction(params, verbose)
+        i, j, abs_psi2 = compute_exciton_wavefunction(params)
         RHO_ZE_ZH[i, j] = abs_psi2
         
         iteration_count += 1
@@ -327,6 +432,13 @@ print("A_vck shape:", A_vck.shape)
 print("Nk, Nc, Nv:", Nk, Nc, Nv)
 print("Nexc:", Nexc)
 
+# getting important transitions in Akcv
+top_kcv = top_n_indexes_all(np.abs(A_vck[i_exc]), limit_BSE_sum_up_to_value)
+top_kcv_set = set(top_kcv)  # convert to set for O(1) lookups
+
+if limit_BSE_sum_up_to_value < 1.0:
+    print(f"Limiting exciton coefficients to {len(top_kcv)} (instead of {Nk*Nc*Nv}) transitions based limit_BSE_sum_up_to_value = {limit_BSE_sum_up_to_value}.")
+
 # Reading WFN file
 print("Opening WFN file to read wavefunction data...")
 with h5py.File(WFN_file, "r") as f:
@@ -345,6 +457,12 @@ grid_size = tuple(FFTgrid)
 Nx, Ny, Nz = grid_size
 min_idx = Nval - Nv
 max_idx = Nval + Nc
+
+# Generate real-space grids for electron and hole
+x = np.linspace(0, 1, Nx, endpoint=False)
+y = np.linspace(0, 1, Ny, endpoint=False)
+X, Y = np.meshgrid(x, y, indexing='ij')
+r_grid_xy = np.stack((X, Y), axis=-1)  # Shape: (Nx, Ny, 2)
 
 with h5py.File(WFN_file, "r") as f:
     coeffs = f["/wfns/coeffs"][min_idx:max_idx, :, :, 0] + 1j * f["/wfns/coeffs"][min_idx:max_idx, :, :, 1]
