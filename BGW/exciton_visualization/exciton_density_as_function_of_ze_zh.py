@@ -214,10 +214,17 @@ def split_coeffs(coeffs, gvecs, ngk):
         start += count
     return list_coeffs, list_gvecs
 
-def wavefunction_for_k_point(coeffs, gvecs, grid_size):
+def wavefunction_for_k_point(coeffs, gvecs, grid_size, kvec):
     """Compute real-space wavefunction via inverse FFT."""
     n_bands, _, _ = coeffs.shape
     psi_k_point = np.zeros((n_bands, *grid_size), dtype=precision_complex)
+    
+    # print('!!!!!!!!!!!!!')
+    # print("r_grid_xyz shape:", r_grid_xyz.shape)
+    # print("kvec shape:", kvec.shape)
+    
+    # Compute Bloch phase: exp(i k⋅r)
+    phase = np.exp(1j * np.tensordot(r_grid_xyz, kvec, axes=([3], [0])))  # shape: (Nx, Ny, Nz)
 
     for n in range(n_bands):
         # Place coefficients in a 3D reciprocal-space grid
@@ -226,11 +233,17 @@ def wavefunction_for_k_point(coeffs, gvecs, grid_size):
             grid[tuple(G)] = coeffs[n, 0, i]
 
         # Inverse FFT to get real-space wavefunction
-        psi_k_point[n] = ifftn(grid)
-
+        u_nk = ifftn(grid) # periodic part u_nk(r). Shape is (Nx, Ny, Nz)
+        
+        # Multiply by Bloch phase to get full wavefunction
+        psi_nk = u_nk * phase
+        # norm = np.sqrt(np.sum(np.abs(psi_nk)**2))
+        # print("norm:", norm)
+        psi_k_point[n] = psi_nk #/ norm
+        
     return psi_k_point
 
-def wavefunction_real_space(COEFFS, GVECS, grid_size):
+def wavefunction_real_space(COEFFS, GVECS, grid_size, kvecs):
     """
     Computes the wavefunction in real space for a given set of coefficients and G-vectors.
     Parameters:
@@ -248,7 +261,7 @@ def wavefunction_real_space(COEFFS, GVECS, grid_size):
     psi_real_space = np.zeros((Nk, n_bands, *grid_size), dtype=precision_complex)
     
     for ik in range(Nk):
-        psi_real_space[ik] = wavefunction_for_k_point(COEFFS[ik], GVECS[ik], grid_size)
+        psi_real_space[ik] = wavefunction_for_k_point(COEFFS[ik], GVECS[ik], grid_size, kvecs[:, ik])
 
     return psi_real_space
 
@@ -285,14 +298,6 @@ def exciton_wavefunction_fixed_ze_zh(A_vck, psi_real, kpoints, q_vec, grid_size,
     # Iterate over k-points, conduction and valence bands
     for k in range(Nk):
         
-        time_phase_start = time.time()
-        phase_e = np.exp(1j * (r_grid_xy[...,0] * kpoints[0, k] + r_grid_xy[...,1] * kpoints[1, k]))
-        phase_h = np.exp(-1j * (r_grid_xy[...,0] * (kpoints[0, k] + q_vec[0]) +
-                                r_grid_xy[...,1] * (kpoints[1, k] + q_vec[1])))
-        time_phase_end = time.time()
-        if verbose > 1:
-            delta_t_phase_calcs += time_phase_end - time_phase_start
-        
         if verbose > 1:    
             time_kcv_start = time.time()
         
@@ -307,8 +312,8 @@ def exciton_wavefunction_fixed_ze_zh(A_vck, psi_real, kpoints, q_vec, grid_size,
         #         phi_vk = psi_k[idx_v, :, :, zh_idx]  # Hole wavefunction at fixed z_h
 
         #         # Compute the wavefunction contributions
-        #         electron_part = phi_ck * phase_e
-        #         hole_part = phi_vk * phase_h
+        #         electron_part = phi_ck 
+        #         hole_part = phi_vk 
 
         #         # Outer product: electron part on (x_e, y_e), hole part on (x_h, y_h)
         #         # contrib = A_vck[k, c, v] * np.einsum("ij,kl->ijkl", electron_part, np.conj(hole_part))
@@ -316,8 +321,8 @@ def exciton_wavefunction_fixed_ze_zh(A_vck, psi_real, kpoints, q_vec, grid_size,
 
         #         Psi += contrib
         
-        phi_ck_all = psi_k[Nv:Nv+Nc, :, :, ze_idx] * phase_e[None, :, :]  # shape: (Nc, Nx, Ny)
-        phi_vk_all = psi_k[Nv-1::-1, :, :, zh_idx] * phase_h[None, :, :]
+        phi_ck_all = psi_k[Nv:Nv+Nc, :, :, ze_idx]  # shape: (Nc, Nx, Ny)
+        phi_vk_all = psi_k[Nv-1::-1, :, :, zh_idx]  # shape: (Nv, Nx, Ny)
         
         if abs(limit_BSE_sum_up_to_value - 1.0) < 1e-10: # here limit_BSE_sum_up_to_value = 1.0
             for c in range(Nc):
@@ -458,11 +463,15 @@ Nx, Ny, Nz = grid_size
 min_idx = Nval - Nv
 max_idx = Nval + Nc
 
+# volume element for normalization
+volume_element = 1 / (Nx * Ny * Nz)
+
 # Generate real-space grids for electron and hole
 x = np.linspace(0, 1, Nx, endpoint=False)
 y = np.linspace(0, 1, Ny, endpoint=False)
-X, Y = np.meshgrid(x, y, indexing='ij')
-r_grid_xy = np.stack((X, Y), axis=-1)  # Shape: (Nx, Ny, 2)
+z = np.linspace(0, 1, Nz, endpoint=False)
+X, Y, Z = np.meshgrid(x, y, z, indexing='ij')  # shape: (Nx, Ny, Nz)
+r_grid_xyz = np.stack((X, Y, Z), axis=-1)  # Shape: (Nx, Ny, Nz, 3)
 
 with h5py.File(WFN_file, "r") as f:
     coeffs = f["/wfns/coeffs"][min_idx:max_idx, :, :, 0] + 1j * f["/wfns/coeffs"][min_idx:max_idx, :, :, 1]
@@ -531,7 +540,7 @@ print("Coefficients split completed.")
 
 # Compute wavefunctions in real space
 print("Computing wavefunctions in real space...")
-phi = wavefunction_real_space(COEFFS, GVECS, grid_size)
+phi = wavefunction_real_space(COEFFS, GVECS, grid_size, kpoints)
 print("Real-space wavefunctions computed.")
 
 if __name__ == "__main__":
