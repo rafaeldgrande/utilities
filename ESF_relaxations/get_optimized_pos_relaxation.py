@@ -2,6 +2,22 @@
 import sys
 
 def extract_last_atomic_positions(file_path):
+    """
+    Extracts the last occurrence of atomic positions from a file containing 
+    multiple "ATOMIC_POSITIONS" sections.
+
+    The function reads the file line by line, identifies all occurrences of 
+    the "ATOMIC_POSITIONS" section, and returns the atomic positions from 
+    the last occurrence.
+
+    Args:
+        file_path (str): The path to the file containing the atomic positions.
+
+    Returns:
+        list of str: A list of strings representing the atomic positions from 
+        the last "ATOMIC_POSITIONS" section. Each string corresponds to a line 
+        in the section.
+    """
     # Read the file and search for the last ATOMIC_POSITIONS section
     with open(file_path, 'r') as file:
         lines = file.readlines()
@@ -27,6 +43,22 @@ def extract_last_atomic_positions(file_path):
     return atomic_positions
 
 def write_atomic_positions(atomic_positions, output_file):
+    """
+    Writes a list of atomic positions to a specified output file in the format
+    required for atomic position data.
+
+    The output file will include a header "ATOMIC_POSITIONS (angstrom)" followed
+    by each atomic position on a new line.
+
+    Args:
+        atomic_positions (list of str): A list of strings where each string 
+            represents an atomic position.
+        output_file (str): The path to the output file where the atomic positions 
+            will be written.
+
+    Returns:
+        None
+    """
     # Write the atomic positions to a new file
     with open(output_file, 'w') as file:
         file.write("ATOMIC_POSITIONS (angstrom)\n")
