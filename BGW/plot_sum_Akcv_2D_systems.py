@@ -110,6 +110,7 @@ with PdfPages("exciton_Akcv_heatmaps.pdf") as pdf:
 
         plt.tight_layout()
         pdf.savefig(fig)
+        plt.close(fig)
         
         # Plot 2: (c, v) band index amplitude
         fig = plt.figure()
@@ -122,7 +123,6 @@ with PdfPages("exciton_Akcv_heatmaps.pdf") as pdf:
         plt.title(f'Exciton {i_exc + 1}')
         plt.tight_layout()
         pdf.savefig(fig)     
-
         plt.close(fig)
         
         print('Finished plotting exciton', i_exc + 1, 'of', i_exc_max)
