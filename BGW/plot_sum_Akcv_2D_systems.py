@@ -17,10 +17,13 @@ python plot_sum_cv_Akcv_2D_systems.py --filename eigenvectors.h5 --i_exc_max 1''
 parser = argparse.ArgumentParser(description="Plot exciton eigenvector distributions.")
 parser.add_argument("--filename", type=str, default="eigenvectors.h5", help="Path to eigenvectors.h5 file")
 parser.add_argument("--i_exc_max", type=int, default=1, help="Number of excitons to plot (starting from 0)")
+parser.add_argument("--finite_momentum_exciton", type=bool, default=False, help="Is this a finite momentum exciton?")
+
 args = parser.parse_args()
 
 filename = args.filename
 i_exc_max = args.i_exc_max
+fin_mom_exciton = args.finite_momentum_exciton
 
 # === Load data once ===
 with h5py.File(filename, "r") as f:
@@ -37,7 +40,17 @@ with h5py.File(filename, "r") as f:
 
     kpts = f["/exciton_header/kpoints/kpts"][:]  # shape: (3, nk)
     bvec = f["/mf_header/crystal/bvec"][:]       # shape: (3, 3)
-
+    
+    if fin_mom_exciton:
+        try:
+            Qshifts_temp = f["/exciton_header/kpoints/exciton_Q_shifts"][:] #[:, 0]
+            Qshift = Qshifts_temp[0, 0]*bvec[0] + Qshifts_temp[0, 1]*bvec[1] + Qshifts_temp[0, 2]*bvec[2]
+            print('Qshift found')
+            print(f'Qshift = {Qshift}, shape = {Qshift.shape}')
+        except:
+            print('Qshift not found. Setting fin_mom_exciton to False')
+            fin_mom_exciton = False
+            
 # === Convert k-points to Cartesian coordinates ===
 k_cart = [kpts[ik, 0] * bvec[0] + kpts[ik, 1] * bvec[1] + kpts[ik, 2] * bvec[2] for ik in range(len(kpts))]
 k_cart = np.array(k_cart)
@@ -91,6 +104,9 @@ with PdfPages("exciton_Akcv_heatmaps.pdf") as pdf:
         ax.set_xlabel(r'$k_x$')
         ax.set_ylabel(r'$k_y$')
         ax.set_title(f'Exciton {i_exc + 1}')
+        
+        if fin_mom_exciton:
+            ax.arrow(0, 0, Qshift[0], Qshift[1], color='white', width=0.01, head_width=0.04, length_includes_head=True)
 
         plt.tight_layout()
         pdf.savefig(fig)
@@ -98,7 +114,7 @@ with PdfPages("exciton_Akcv_heatmaps.pdf") as pdf:
         # Plot 2: (c, v) band index amplitude
         fig = plt.figure()
         im = plt.imshow(sum_k_Akcv.T, origin='lower', aspect='auto', cmap='plasma')
-        plt.colorbar(im, label=r'$|A_{kcv}|^2$')
+        plt.colorbar(im, label=r'$sum_k |A_{kcv}|^2$')
         plt.xlabel('Conduction')
         plt.ylabel('Valence')
         plt.xticks(np.arange(nc), np.arange(nc)+1)
