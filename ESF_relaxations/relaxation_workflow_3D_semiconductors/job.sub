@@ -1,0 +1,49 @@
+#!/bin/bash
+#SBATCH -J Si_ES_relax
+#SBATCH -o myjob.o%j
+#SBATCH -e myjob.e%j
+#SBATCH -p development
+#SBATCH -N 40
+#SBATCH --ntasks-per-node=56
+#SBATCH -t 2:00:00
+#SBATCH --mail-type=all
+#SBATCH --mail-user=rafaeldgrande@gmail.com
+#SBATCH -A PHY22040
+
+export OMP_NUM_THREADS=1
+
+module load qe/7.2
+BGWBIN="/home1/08948/rdgrande/packages/BerkeleyGW-4.0/bin"
+FORCES="/home1/08948/rdgrande/packages/excited_state_forces/excited_forces.py"
+MYPYTHON="/home1/08948/rdgrande/miniconda3/bin/python"
+
+
+STEPS=(3 4)
+
+for step in "${STEPS[@]}"; do
+mkdir -p step_$step
+done
+
+for step in "${STEPS[@]}"; do
+    echo "=== Processing step_$step ==="
+    cd "step_$step" || { echo "Directory step_$step not found. Skipping."; continue; }
+
+    if [ "$step" -ne 0 ]; then
+        previous_step=$((step - 1))
+        echo "Copying DISP_ATOMS from step_$previous_step..."
+        cp "../step_$previous_step/DISP_ATOMS" ATOMS || {
+            echo "Failed to copy DISP_ATOMS from step_$previous_step. Exiting."
+            exit 1
+        }
+    fi
+
+    echo "Running run_step.bash in step_$step..."
+    bash ../scripts/run_step.bash || {
+        echo "run_step.bash failed in step_$step. Exiting."
+        exit 1
+    }
+
+    cd ..
+done
+
+
