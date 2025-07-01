@@ -51,17 +51,30 @@ with h5py.File("bsemat.h5", "r") as f_orig:
             mat_path = f"/mats/{mat_name}"
             if mat_path in f_new:
                 data = f_new[mat_path][:]
+                
+                
+                # nk*ns, nk*ns, nc, nc, nv, nv, flavor
+                # nk = number of k-points, ns = spin components
+                # flavo = 1 (real) or 2 (complex)
 
                 # Determine new shape
                 new_shape = list(data.shape)
-                new_shape[1] = args.mv  # Modify valence dimension
-                new_shape[3] = args.mc  # Modify conduction dimension
+                new_shape[2] = args.mv  # Modify valence dimension
+                new_shape[3] = args.mv  # Modify valence dimension
+                new_shape[4] = args.mc  # Modify conduction dimension
+                new_shape[5] = args.mc  # Modify conduction dimension
+                
+                if mat_name == 'head':
+                    print(f'Previous shape {data.shape}')
+                    print(f"New shape {new_shape}")
 
                 # Create a new dataset with the modified shape
                 del f_new[mat_path]  # Delete the existing dataset
                 f_new.create_dataset(mat_path, shape=tuple(new_shape), dtype=data.dtype)
 
                 # Copy relevant data
-                f_new[mat_path][:] = data[: args.mv, : args.mv, : args.mc, : args.mc, :, :]
+                f_new[mat_path][:] = data[:, :, :args.mv, :args.mv, :args.mc, :args.mc, :]
+                
+                print('Finished copying', mat_name)
 
 print("New bsemat_mod.h5 file created successfully.")
