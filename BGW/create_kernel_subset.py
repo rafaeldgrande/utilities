@@ -34,8 +34,8 @@ with h5py.File("bsemat.h5", "r") as f_orig:
     nv_orig = f_orig["/bse_header/bands/nvb"][()]
     nc_orig = f_orig["/bse_header/bands/ncb"][()]
     
-    print(f"Original kernel: nv = {nv_orig}, nc = {nc_orig}")
-    print(f"New kernel: nv = {nv_new}, nc = {nc_new}")
+    print(f"Original kernel: {input_file} with nv = {nv_orig}, nc = {nc_orig}")
+    print(f"New kernel: {output_file} with nv = {nv_new}, nc = {nc_new}")
     
     if nc_orig < nc_new:
         raise ValueError(f"New number of conduction bands ({nc_new}) is greater than the original number ({nc_orig}).")
@@ -45,7 +45,7 @@ with h5py.File("bsemat.h5", "r") as f_orig:
 
 
     # Create a new file
-    with h5py.File("bsemat_mod.h5", "w") as f_new:
+    with h5py.File(output_file, "w") as f_new:
         # Copy all groups and datasets except the ones we need to modify
         for name in f_orig:
             f_orig.copy(name, f_new)
@@ -87,4 +87,4 @@ with h5py.File("bsemat.h5", "r") as f_orig:
                 
                 print('Finished copying', mat_name)
 
-print("New bsemat_mod.h5 file created successfully.")
+print(f"New {output_file} file created successfully.")
