@@ -11,7 +11,7 @@ I am assuming the order of k points in the two files is the same. Also assuming 
 is the same order in GW part.
 
 Usage:
-python get_SOC_corrections.py qe_out_FR qe_out_SR
+python get_SOC_corrections.py qe_out_SOC_on qe_out_SOC_off
 
 '''
 
@@ -42,18 +42,18 @@ def get_bands(qe_out):
 def main():
 	# Set up argument parser
 	parser = argparse.ArgumentParser(description='Calculate SOC corrections from QE band outputs')
-	parser.add_argument('qe_out_FR', help='Path to QE bands output with FR pseudopotentials (SOC off)')
-	parser.add_argument('qe_out_SR', help='Path to QE bands output with SR pseudopotentials (SOC on)')
-	
+	parser.add_argument('qe_out_SOC_on', help='Path to QE bands output with FR pseudopotentials (SOC off)')
+	parser.add_argument('qe_out_SOC_off', help='Path to QE bands output with SR pseudopotentials (SOC on)')
+
 	args = parser.parse_args()
-	
-	qe_out_FR = args.qe_out_FR
-	qe_out_SR = args.qe_out_SR
 
-	bands_FR = get_bands(qe_out_FR)
-	bands_SR = get_bands(qe_out_SR)
+	qe_out_SOC_on = args.qe_out_SOC_on
+	qe_out_SOC_off = args.qe_out_SOC_off
 
-	correction = bands_FR - bands_SR
+	bands_SOC_on = get_bands(qe_out_SOC_on)
+	bands_SOC_off = get_bands(qe_out_SOC_off)
+
+	correction = bands_SOC_on - bands_SOC_off
 
 	arq_correction = open('Corrections_SOC.dat', 'w')
 

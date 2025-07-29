@@ -32,7 +32,7 @@ def main():
     
     for i, pos, dist in zip(indices, pos_list, dists):
         symbol = atoms[i].symbol
-        print(f"Index {i+1:3d}: {symbol:>2} at {pos} (distance = {dist:.3f} angstroms)")
+        print(f"Index {i+1:3d}: {symbol:>2} at {pos} (distance = {dist:.3f} angstrom)")
         indexes_list.append(i+1)
         
     print('Total of atoms in this file: ', len(atoms))
