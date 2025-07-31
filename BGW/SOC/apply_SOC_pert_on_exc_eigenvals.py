@@ -63,20 +63,20 @@ if __name__ == "__main__":
     eigenvals_with_SOC = args.eigenvals_with_SOC
     eigenvectors_file = args.eigenvectors_file
     
-	# loading SOC corrections
+    # loading SOC corrections
     deltaE_SOC = []
     arq = open(corrections_SOC)
-	for line in arq:
-		line_split = line.split()
-		if line_split[0] == 'kpoint':
-			deltaE_SOC.append([[]])
-		else:
+    for line in arq:
+        line_split = line.split()
+        if line_split[0] == 'kpoint':
+            deltaE_SOC.append([[]])
+        else:
             if len(deltaE_SOC[-1][-1]) < 2:
-			    deltaE_SOC[-1][-1].append(float(line_split[1]))
+                deltaE_SOC[-1][-1].append(float(line_split[1]))
             else:
                 deltaE_SOC[-1].append([float(line_split[1])])
-	arq.close()
-	deltaE_SOC = np.array(deltaE_SOC)
+    arq.close()
+    deltaE_SOC = np.array(deltaE_SOC)
     print('SOC corrections loaded:', deltaE_SOC.shape)
 
     # loading original eigenvalues data
