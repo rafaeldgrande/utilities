@@ -74,18 +74,17 @@ ky_orig = k_cart[:, 1]
 b1 = bvec[0, :2]
 b2 = bvec[1, :2]
 
-# First BZ hexagon corners
-kpts_hex = np.array([
-    (1/3) * ( b1 + 2 * b2),
-    (1/3) * (2 * b1 + b2),
-    (1/3) * ( b1 - b2),
-    (1/3) * (-b1 - 2 * b2),
-    (1/3) * (-2 * b1 - b2),
-    (1/3) * (-b1 + b2)
-])
-angles = np.arctan2(kpts_hex[:,1], kpts_hex[:,0])
-kpts_hex_sorted = kpts_hex[np.argsort(angles)]
-kpts_hex_closed = np.vstack([kpts_hex_sorted, kpts_hex_sorted[0]])
+print('Reciprocal vectors b1 and b2:')
+print(f'b1 = {b1}, shape = {b1.shape}')
+print(f'b2 = {b2}, shape = {b2.shape}')
+
+# reading corners of the first Brillouin zone (BZ)
+kpts_hex_rec_vec = np.loadtxt("kpoints_delimit_BZ.dat")
+kpts_hex = [kpts_hex_rec_vec[ik, 0]*bvec[0] + kpts_hex_rec_vec[ik, 1]*bvec[1] + kpts_hex_rec_vec[ik, 2]*bvec[2] for ik in range(len(kpts_hex_rec_vec))]
+kpts_hex = np.array(kpts_hex)[:, :2]
+print('kpts_hex shape:', kpts_hex.shape)
+
+kpts_hex_closed = np.vstack([kpts_hex, kpts_hex[0]])
 
 # === Plot all excitons and save to a PDF ===
 if save_pdf:
@@ -101,10 +100,10 @@ for i_exc in range(i_exc_max):
     ky = np.copy(ky_orig)
     values = np.copy(sum_cv_Akcv)
 
-    for v in [b1, b2, -b1, -b2, b1+b2, -b1-b2]:
+    for v in [b1, b2, -b1, -b2, b1 + b2, -b1 - b2, b1-b2, b2-b1]:
         delta_kx, delta_ky = v
         kx = np.append(kx, kx_orig + delta_kx)
-        ky = np.append(ky, ky_orig - delta_ky)
+        ky = np.append(ky, ky_orig + delta_ky)
         values = np.append(values, sum_cv_Akcv)
 
     # Plot
@@ -148,5 +147,8 @@ for i_exc in range(i_exc_max):
     plt.close(fig)
     
     print('Finished plotting exciton', i_exc + 1, 'of', i_exc_max)
+
+if save_pdf:
+    pdf.close()
 
 print("Finished")
