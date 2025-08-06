@@ -12,13 +12,22 @@ for transitions v to c.
 Usage:
 python plot_sum_cv_Akcv_2D_systems.py --filename eigenvectors.h5 --i_exc_max 1'''
 
+def str2bool(v):
+    if isinstance(v, bool):
+        return v
+    if v.lower() in ('yes', 'true', 't', 'y', '1'):
+        return True
+    elif v.lower() in ('no', 'false', 'f', 'n', '0'):
+        return False
+    else:
+        raise argparse.ArgumentTypeError('Boolean value expected.')
 
 # === Argument parser ===
 parser = argparse.ArgumentParser(description="Plot exciton eigenvector distributions.")
 parser.add_argument("--filename", type=str, default="eigenvectors.h5", help="Path to eigenvectors.h5 file")
 parser.add_argument("--i_exc_max", type=int, default=1, help="Number of excitons to plot (starting from 0)")
-parser.add_argument("--finite_momentum_exciton", type=bool, default=False, help="Is this a finite momentum exciton?")
-parser.add_argument("--save_pdf", type=bool, default=True, help="Save plots to PDF")
+parser.add_argument("--finite_momentum_exciton", type=str2bool, nargs='?', const=True, default=False, help="Is this a finite momentum exciton?")
+parser.add_argument("--save_pdf", type=str2bool, nargs='?', const=True, default=True, help="Save plots to PDF")
 
 args = parser.parse_args()
 
@@ -26,6 +35,8 @@ filename = args.filename
 i_exc_max = args.i_exc_max
 fin_mom_exciton = args.finite_momentum_exciton
 save_pdf = args.save_pdf
+
+print(f"Loading data from {filename} for {i_exc_max} excitons, finite momentum: {fin_mom_exciton}, save PDF: {save_pdf}")
 
 # === Load data once ===
 with h5py.File(filename, "r") as f:
