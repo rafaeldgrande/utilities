@@ -95,7 +95,7 @@ if __name__ == "__main__":
     arq_with_SOC = open(eqp_new, 'w')
 
     for ik in range(Nk):
-        arq_with_SOC.write(f"    {Kpoints[ik,0]:.8f}   {Kpoints[ik,1]:.8f}    {Kpoints[ik,2]:.8f}     {Nbnds} \n")
+        arq_with_SOC.write(f"    {Kpoints[ik,0]:.8f}   {Kpoints[ik,1]:.8f}    {Kpoints[ik,2]:.8f}     {int(2*Nbnds)} \n")
 
         for ibnd in range(Nbnds):
             band_index_1 = int(bands_indexes[ibnd] * 2)
