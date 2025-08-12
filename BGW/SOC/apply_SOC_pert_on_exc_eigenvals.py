@@ -3,6 +3,24 @@ import numpy as np
 import argparse
 import h5py
 
+def get_SOC_corrections(corrections_SOC):
+
+    deltaE_SOC = []
+    arq = open(corrections_SOC)
+    for line in arq:
+        line_split = line.split()
+        if line_split[0] == 'kpoint':
+            deltaE_SOC.append([[]])
+        else:
+            if len(deltaE_SOC[-1][-1]) < 2:
+                deltaE_SOC[-1][-1].append(float(line_split[1]))
+            else:
+                deltaE_SOC[-1].append([float(line_split[1])])
+    arq.close()
+    deltaE_SOC = np.array(deltaE_SOC)
+    print('SOC corrections loaded:', deltaE_SOC.shape) # shape (Nk, Nbands, Nspin)
+    return deltaE_SOC
+
 def get_exciton_info(exciton_file):
 
     """    
@@ -64,20 +82,7 @@ if __name__ == "__main__":
     eigenvectors_file = args.eigenvectors_file
     
     # loading SOC corrections
-    deltaE_SOC = []
-    arq = open(corrections_SOC)
-    for line in arq:
-        line_split = line.split()
-        if line_split[0] == 'kpoint':
-            deltaE_SOC.append([[]])
-        else:
-            if len(deltaE_SOC[-1][-1]) < 2:
-                deltaE_SOC[-1][-1].append(float(line_split[1]))
-            else:
-                deltaE_SOC[-1].append([float(line_split[1])])
-    arq.close()
-    deltaE_SOC = np.array(deltaE_SOC)
-    print('SOC corrections loaded:', deltaE_SOC.shape)
+    deltaE_SOC = get_SOC_corrections(corrections_SOC) # shape (Nk, Nbands, Nspin)
 
     # loading original eigenvalues data
     eigenvals_data = np.loadtxt(eigenvals_file)
@@ -98,15 +103,15 @@ if __name__ == "__main__":
     
     # print('bmin:', bmin, 'bmax:', bmax)
     
-    delta_E_SOC_val = deltaE_SOC[:, bmin:nval_index, :] # shape (Nk, Nv, Nspin)
+    delta_E_SOC_val = deltaE_SOC[:, bmin:nval_index, :][:, ::-1, :] # shape (Nk, Nv, Nspin) - reversed valence bands
     delta_E_SOC_cond = deltaE_SOC[:, nval_index:bmax, :] # shape (Nk, Nc, Nspin)
 
-    delta_E_SO_kcv = np.zeros((Nk, Nc, Nv, 2))
+    delta_E_SOC_kcv = np.zeros((Nk, Nc, Nv, 2))
     
     for ik in range(Nk):
         for ic in range(Nc):
             for iv in range(Nv):
-                delta_E_SO_kcv[ik, ic, iv, :] = delta_E_SOC_cond[ik, ic, :] - delta_E_SOC_val[ik, iv, :]
+                delta_E_SOC_kcv[ik, ic, iv, :] = delta_E_SOC_cond[ik, ic, :] - delta_E_SOC_val[ik, iv, :]
                 
     # print('delta_E_SO_kcv shape:', delta_E_SO_kcv.shape)
 
@@ -116,8 +121,8 @@ if __name__ == "__main__":
     # apply SOC corrections to eigenvalues
     eigenvales_up, eigenvals_down = np.zeros((Nexc)), np.zeros((Nexc))
     for iexc in range(Nexc):
-        eigenvales_up[iexc] = eigenvals[iexc] + np.sum(delta_E_SO_kcv[:, :, :, 0] * abs(Akcv[iexc, :, :, :])**2)
-        eigenvals_down[iexc] = eigenvals[iexc] + np.sum(delta_E_SO_kcv[:, :, :, 1] * abs(Akcv[iexc, :, :, :])**2)
+        eigenvales_up[iexc] = eigenvals[iexc] + np.sum(delta_E_SOC_kcv[:, :, :, 0] * abs(Akcv[iexc, :, :, :])**2)
+        eigenvals_down[iexc] = eigenvals[iexc] + np.sum(delta_E_SOC_kcv[:, :, :, 1] * abs(Akcv[iexc, :, :, :])**2)
         
     # print('eigenvales_up shape:', eigenvales_up.shape)
     # print('first 5 eigenvales_up:', eigenvales_up[:5])
