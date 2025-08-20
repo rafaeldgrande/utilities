@@ -137,7 +137,7 @@ if __name__ == "__main__":
             plt.plot(eigenvals[iexc], pert_down, 'bo')
             
     if plot_soc:
-        plt.xlabel('Exciton index')
+        plt.xlabel('E (eV)')
         plt.ylabel('SOC Perturbation (eV)')
         plt.title('SOC Perturbation on Exciton Eigenvalues')
         plt.legend(['Up Spin', 'Down Spin'])
