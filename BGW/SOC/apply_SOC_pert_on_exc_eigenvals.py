@@ -73,13 +73,18 @@ if __name__ == "__main__":
     parser.add_argument('--eigenvals_file', default='eigenvalues.dat', help='eigenvalues file output from absorption step of BerkeleyGW (default: eigenvalues.dat)')
     parser.add_argument('--eigenvals_with_SOC', default='eigenvalues_with_SOC.dat', help='Output eigenvalues file with SOC (default: eigenvalues_with_SOC.dat)')
     parser.add_argument('--eigenvectors_file', default='eigenvectors.h5', help='eigenvectors file (default: eigenvectors.h5)')
-    
+    parser.add_argument('--plot_soc', type=lambda x: x.lower() == 'true', default=False, help='Plot SOC perturbation on eigenvalues (default: False)')
     args = parser.parse_args()
-    
+
     corrections_SOC = args.corrections_SOC
     eigenvals_file = args.eigenvals_file
     eigenvals_with_SOC = args.eigenvals_with_SOC
     eigenvectors_file = args.eigenvectors_file
+    plot_soc = args.plot_soc
+    
+    if plot_soc:
+        import matplotlib.pyplot as plt
+        plt.figure(figsize=(10, 6))
     
     # loading SOC corrections
     deltaE_SOC = get_SOC_corrections(corrections_SOC) # shape (Nk, Nbands, Nspin)
@@ -119,11 +124,26 @@ if __name__ == "__main__":
     # print('delta_E_SOC_cond shape:', delta_E_SOC_cond.shape)
 
     # apply SOC corrections to eigenvalues
+    
     eigenvales_up, eigenvals_down = np.zeros((Nexc)), np.zeros((Nexc))
     for iexc in range(Nexc):
-        eigenvales_up[iexc] = eigenvals[iexc] + np.sum(delta_E_SOC_kcv[:, :, :, 0] * abs(Akcv[iexc, :, :, :])**2)
-        eigenvals_down[iexc] = eigenvals[iexc] + np.sum(delta_E_SOC_kcv[:, :, :, 1] * abs(Akcv[iexc, :, :, :])**2)
+        pert_up = np.sum(delta_E_SOC_kcv[:, :, :, 0] * abs(Akcv[iexc, :, :, :])**2)
+        pert_down = np.sum(delta_E_SOC_kcv[:, :, :, 1] * abs(Akcv[iexc, :, :, :])**2)
+        eigenvales_up[iexc] = eigenvals[iexc] + pert_up
+        eigenvals_down[iexc] = eigenvals[iexc] + pert_down
         
+        if plot_soc:
+            plt.plot(eigenvals[iexc], pert_up, 'ro')
+            plt.plot(eigenvals[iexc], pert_down, 'bo')
+            
+    if plot_soc:
+        plt.xlabel('Exciton index')
+        plt.ylabel('SOC Perturbation (eV)')
+        plt.title('SOC Perturbation on Exciton Eigenvalues')
+        plt.legend(['Up Spin', 'Down Spin'])
+        plt.xlim([1.5, 3.0])
+        plt.savefig('SOC_perturbation.png')
+
     # print('eigenvales_up shape:', eigenvales_up.shape)
     # print('first 5 eigenvales_up:', eigenvales_up[:5])
     # print('eigenvals_down shape:', eigenvals_down.shape)
