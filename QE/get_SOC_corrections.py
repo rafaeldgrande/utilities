@@ -11,7 +11,7 @@ I am assuming the order of k points in the two files is the same. Also assuming 
 is the same order in GW part.
 
 Usage:
-python get_SOC_corrections.py qe_out_SOC_on qe_out_SOC_off
+python get_SOC_corrections.py --qe_out_SOC_on FR/mos2_bands_soc_fine_grid.dat --qe_out_SOC_off SR/mos2_bands_soc_fine_grid.dat --nval 52
 
 '''
 
@@ -99,12 +99,12 @@ def main():
     
     # checking!
     print('Gamma point')
-    for ib in range(nval-4, nval+4):
+    for ib in range(nval-5, nval+5):
         print(f'Band {ib+1:3d}   SOC on: {bands_SOC_on[0, ib]:8.4f}   SOC off: {bands_SOC_off[0, ib]:8.4f}   Correction: {corrections[0, ib]:8.4f}')
         
-    print('Kpoint ik=120')
-    for ib in range(nval-4, nval+4):
-        print(f'Band {ib+1:3d}   SOC on: {bands_SOC_on[120, ib]:8.4f}   SOC off: {bands_SOC_off[120, ib]:8.4f}   Correction: {corrections[120, ib]:8.4f}')
+    # print('Kpoint ik=120')
+    # for ib in range(nval-4, nval+4):
+    #     print(f'Band {ib+1:3d}   SOC on: {bands_SOC_on[120, ib]:8.4f}   SOC off: {bands_SOC_off[120, ib]:8.4f}   Correction: {corrections[120, ib]:8.4f}')
 
     print('Writing SOC corrections to file: Corrections_SOC.dat')
     arq_correction = open('Corrections_SOC.dat', 'w')
