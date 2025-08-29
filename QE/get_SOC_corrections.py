@@ -62,16 +62,16 @@ def main():
     parser = argparse.ArgumentParser(description='Calculate SOC corrections from QE band outputs')
     parser.add_argument('--qe_out_SOC_on', default='FR/mos2_bands_soc_fine_grid.dat', help='Path to QE bands output with FR pseudopotentials (SOC on)')
     parser.add_argument('--qe_out_SOC_off', default='SR/mos2_bands_soc_fine_grid.dat', help='Path to QE bands output with SR pseudopotentials (SOC off)')
-    # parser.add_argument('--spins_out_SOC_on', default='FR/mos2_bands_soc.dat.3', help='Path to QE spins output with FR pseudopotentials (SOC on)')
-    # parser.add_argument('--spins_out_SOC_off', default='SR/mos2_bands_soc.dat.3', help='Path to QE spins output with SR pseudopotentials (SOC off)')
+    parser.add_argument('--spins_out_SOC_on', default='FR/mos2_bands_soc.dat.3', help='Path to QE spins output with FR pseudopotentials (SOC on)')
+    parser.add_argument('--spins_out_SOC_off', default='SR/mos2_bands_soc.dat.3', help='Path to QE spins output with SR pseudopotentials (SOC off)')
     parser.add_argument('--nval', type=int, default=52, help='Index of the valence band. For calculations with spin nval = number of electrons. For calculations without spin nval = number of electrons / 2')
 
     args = parser.parse_args()
     
     qe_out_SOC_on = args.qe_out_SOC_on
     qe_out_SOC_off = args.qe_out_SOC_off
-    # spins_out_SOC_on = args.spins_out_SOC_on
-    # spins_out_SOC_off = args.spins_out_SOC_off
+    spins_out_SOC_on = args.spins_out_SOC_on
+    spins_out_SOC_off = args.spins_out_SOC_off
     nval = args.nval - 1
     
     # qe_out_SOC_on = "FR/mos2_bands_soc.dat"
@@ -87,8 +87,8 @@ def main():
     bands_SOC_on -= bands_SOC_on[0, nval]
     bands_SOC_off -= bands_SOC_off[0, nval]
 
-    # spins_SOC_on = get_bands_and_spin(spins_out_SOC_on)
-    # spins_SOC_off = get_bands_and_spin(spins_out_SOC_off)
+    spins_SOC_on = get_bands_and_spin(spins_out_SOC_on)
+    spins_SOC_off = get_bands_and_spin(spins_out_SOC_off)
 
     # print(spins_SOC_on[0, :10])
     # print(spins_SOC_off[0, :10])
@@ -97,6 +97,22 @@ def main():
 
     corrections = bands_SOC_on - bands_SOC_off # shape nk, nb
     
+    
+    corrections = np.zeros_like(bands_SOC_on)
+
+    for ik in range(Nk):
+        for ib in range(int(Nbnds/2)):
+            ib1 = 2*ib
+            ib2 = 2*ib + 1
+
+            # check if signal of spins_SOC_on[ik, ib1] is the same as spins_SOC_off[ik, ib1]
+            if np.sign(spins_SOC_on[ik, ib1]) == np.sign(spins_SOC_off[ik, ib1]):
+                corrections[ik, ib1] = bands_SOC_on[ik, ib1] - bands_SOC_off[ik, ib1]
+                corrections[ik, ib2] = bands_SOC_on[ik, ib2] - bands_SOC_off[ik, ib2]
+            else:
+                corrections[ik, ib1] = bands_SOC_on[ik, ib2] - bands_SOC_off[ik, ib2]
+                corrections[ik, ib2] = bands_SOC_on[ik, ib1] - bands_SOC_off[ik, ib1]
+
     # checking!
     print('Gamma point')
     for ib in range(nval-5, nval+5):
