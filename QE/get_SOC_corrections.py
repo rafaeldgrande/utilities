@@ -65,7 +65,7 @@ def main():
     parser.add_argument('--spins_out_SOC_on', default='FR/mos2_bands_soc.dat.3', help='Path to QE spins output with FR pseudopotentials (SOC on)')
     parser.add_argument('--spins_out_SOC_off', default='SR/mos2_bands_soc.dat.3', help='Path to QE spins output with SR pseudopotentials (SOC off)')
     parser.add_argument('--nval', type=int, default=52, help='Index of the valence band. For calculations with spin nval = number of electrons. For calculations without spin nval = number of electrons / 2')
-    parser.add_argument('--map_spin', type=bool, default=True, help='Whether to map the spins when calculating the corrections')
+    parser.add_argument('--map_spin', type=bool, default=False, help='Whether to map the spins when calculating the corrections')
     args = parser.parse_args()
     
     qe_out_SOC_on = args.qe_out_SOC_on
