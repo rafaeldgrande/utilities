@@ -104,14 +104,14 @@ def main():
                 ib1 = 2*ib
                 ib2 = 2*ib + 1
                 
-                if spins_out_SOC_on[ik, ib1] <= 0.0:
+                if spins_SOC_on[ik, ib1] <= 0.0:
                     E_SOC_on_spin_down = bands_SOC_on[ik, ib1] 
                     E_SOC_on_spin_up = bands_SOC_on[ik, ib2]
                 else:
                     E_SOC_on_spin_down = bands_SOC_on[ik, ib2]
                     E_SOC_on_spin_up = bands_SOC_on[ik, ib1]
-                    
-                if spins_out_SOC_off[ik, ib1] <= 0.0:
+
+                if spins_SOC_off[ik, ib1] <= 0.0:
                     E_SOC_off_spin_down = bands_SOC_off[ik, ib1]
                     E_SOC_off_spin_up = bands_SOC_off[ik, ib2]
                 else:
