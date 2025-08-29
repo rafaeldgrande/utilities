@@ -13,9 +13,9 @@ def get_SOC_corrections(corrections_SOC):
             deltaE_SOC.append([[]])
         else:
             if len(deltaE_SOC[-1][-1]) < 2:
-                deltaE_SOC[-1][-1].append(float(line_split[1]))
+                deltaE_SOC[-1][-1].append(float(line_split[1])) # spin alpha
             else:
-                deltaE_SOC[-1].append([float(line_split[1])])
+                deltaE_SOC[-1].append([float(line_split[1])]) # spin beta
     arq.close()
     deltaE_SOC = np.array(deltaE_SOC)
     print('SOC corrections loaded:', deltaE_SOC.shape) # shape (Nk, Nbands, Nspin)
@@ -135,6 +135,9 @@ if __name__ == "__main__":
         if plot_soc:
             plt.plot(eigenvals[iexc], pert_up, 'ro')
             plt.plot(eigenvals[iexc], pert_down, 'bo')
+            
+        if iexc <= 15:
+            print(f"Exciton {iexc+1:3d}: E = {eigenvals[iexc]:.6f} eV, E_up = {eigenvales_up[iexc]:.6f} eV, E_down = {eigenvals_down[iexc]:.6f} eV, Pert_up = {pert_up:.6f} eV, Pert_down = {pert_down:.6f} eV")
             
     if plot_soc:
         plt.xlabel('E (eV)')
