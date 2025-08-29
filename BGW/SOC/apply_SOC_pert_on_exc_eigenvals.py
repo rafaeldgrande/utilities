@@ -137,8 +137,8 @@ if __name__ == "__main__":
             plt.plot(eigenvals[iexc], pert_down, 'bo')
             
         if iexc <= 15:
-            print(f"Exciton {iexc+1:3d}: E = {eigenvals[iexc]:.6f} eV, E_up = {eigenvales_up[iexc]:.6f} eV, E_down = {eigenvals_down[iexc]:.6f} eV, Pert_up = {pert_up:.6f} eV, Pert_down = {pert_down:.6f} eV")
-            
+            print(f"Exciton {iexc+1:3d}: E = {eigenvals[iexc]:.4f} eV, E_up = {eigenvales_up[iexc]:.4f} eV, E_down = {eigenvals_down[iexc]:.4f} eV, Pert_up = {pert_up:.4f} eV, Pert_down = {pert_down:.4f} eV, split = {pert_up - pert_down:.4f} eV")
+
     if plot_soc:
         plt.xlabel('E (eV)')
         plt.ylabel('SOC Perturbation (eV)')
