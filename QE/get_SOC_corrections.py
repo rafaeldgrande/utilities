@@ -65,7 +65,7 @@ def main():
     parser.add_argument('--spins_out_SOC_on', default='FR/mos2_bands_soc.dat.3', help='Path to QE spins output with FR pseudopotentials (SOC on)')
     parser.add_argument('--spins_out_SOC_off', default='SR/mos2_bands_soc.dat.3', help='Path to QE spins output with SR pseudopotentials (SOC off)')
     parser.add_argument('--nval', type=int, default=52, help='Index of the valence band. For calculations with spin nval = number of electrons. For calculations without spin nval = number of electrons / 2')
-
+    parser.add_argument('--map_spin', type=bool, default=True, help='Whether to map the spins when calculating the corrections')
     args = parser.parse_args()
     
     qe_out_SOC_on = args.qe_out_SOC_on
@@ -73,6 +73,7 @@ def main():
     spins_out_SOC_on = args.spins_out_SOC_on
     spins_out_SOC_off = args.spins_out_SOC_off
     nval = args.nval - 1
+    map_spin = args.map_spin
     
     # qe_out_SOC_on = "FR/mos2_bands_soc.dat"
     # qe_out_SOC_off = "SR/mos2_bands_soc.dat"
@@ -94,24 +95,42 @@ def main():
     # print(spins_SOC_off[0, :10])
     
     Nk, Nbnds = bands_SOC_on.shape
-
-    corrections = bands_SOC_on - bands_SOC_off # shape nk, nb
     
-    
-    corrections = np.zeros_like(bands_SOC_on)
+    if map_spin:
+        corrections = np.zeros_like(bands_SOC_on) # shape nk, nb
 
-    for ik in range(Nk):
-        for ib in range(int(Nbnds/2)):
-            ib1 = 2*ib
-            ib2 = 2*ib + 1
+        for ik in range(Nk):
+            for ib in range(int(Nbnds/2)):
+                ib1 = 2*ib
+                ib2 = 2*ib + 1
+                
+                if spins_out_SOC_on[ik, ib1] <= 0.0:
+                    E_SOC_on_spin_down = bands_SOC_on[ik, ib1] 
+                    E_SOC_on_spin_up = bands_SOC_on[ik, ib2]
+                else:
+                    E_SOC_on_spin_down = bands_SOC_on[ik, ib2]
+                    E_SOC_on_spin_up = bands_SOC_on[ik, ib1]
+                    
+                if spins_out_SOC_off[ik, ib1] <= 0.0:
+                    E_SOC_off_spin_down = bands_SOC_off[ik, ib1]
+                    E_SOC_off_spin_up = bands_SOC_off[ik, ib2]
+                else:
+                    E_SOC_off_spin_down = bands_SOC_off[ik, ib2]
+                    E_SOC_off_spin_up = bands_SOC_off[ik, ib1]
 
-            # check if signal of spins_SOC_on[ik, ib1] is the same as spins_SOC_off[ik, ib1]
-            if np.sign(spins_SOC_on[ik, ib1]) == np.sign(spins_SOC_off[ik, ib1]):
-                corrections[ik, ib1] = bands_SOC_on[ik, ib1] - bands_SOC_off[ik, ib1]
-                corrections[ik, ib2] = bands_SOC_on[ik, ib2] - bands_SOC_off[ik, ib2]
-            else:
-                corrections[ik, ib1] = bands_SOC_on[ik, ib2] - bands_SOC_off[ik, ib2]
-                corrections[ik, ib2] = bands_SOC_on[ik, ib1] - bands_SOC_off[ik, ib1]
+                corrections[ik, ib1] = E_SOC_on_spin_down - E_SOC_off_spin_down
+                corrections[ik, ib2] = E_SOC_on_spin_up - E_SOC_off_spin_up
+
+            #     # check if signal of spins_SOC_on[ik, ib1] is the same as spins_SOC_off[ik, ib1]
+            #     if np.sign(spins_SOC_on[ik, ib1]) == np.sign(spins_SOC_off[ik, ib1]):
+            #         corrections[ik, ib1] = bands_SOC_on[ik, ib1] - bands_SOC_off[ik, ib1]
+            #         corrections[ik, ib2] = bands_SOC_on[ik, ib2] - bands_SOC_off[ik, ib2]
+            #     # else:
+            #     #     corrections[ik, ib1] = bands_SOC_on[ik, ib2] - bands_SOC_off[ik, ib2]
+            #     #     corrections[ik, ib2] = bands_SOC_on[ik, ib1] - bands_SOC_off[ik, ib1]
+                    
+    else:
+        corrections = bands_SOC_on - bands_SOC_off # shape nk, nb
 
     # checking!
     print('Gamma point')
