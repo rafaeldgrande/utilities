@@ -5,6 +5,27 @@ import matplotlib.pyplot as plt
 import argparse
 parser = argparse.ArgumentParser()
 
+'''
+
+Plot eqp.dat file from BerkeleyGW to visualize bandstructure. Recommend to use eqp.dat output from inteqp.$flavor.x
+
+Usage : python plot_eqp_file.py -eqp eqp.dat -symm symm_points_file -Nval Nval -fig_name fig_name
+where eqp.dat is the file with the band structure from BGW
+symm_points_file is the file with the high symmetry points
+Nval is the index of last valence band (starting from 1) 
+The code set 0 to max(Eval). If don't want to shift bands, set Nval to 0 or do not use this argument
+fig_name is the name of the figure to be saved. If not given, the figure will not be saved
+
+Symm file format is a text file with lines like:
+G 0.000000000 0.000000000 0.000000000
+M 0.500000000 0.000000000 0.000000000
+K 0.333333333 0.333333333 0.000000000
+
+where kpoints are reciprocal lattice coordinates and first column is the label of the k point.
+To use latex change G for $\Gamma$
+
+'''
+
 def read_eqp_dat_file(eqp_file):
     
     bands_dft, bands_qp = [], []
@@ -57,6 +78,7 @@ if __name__ == "__main__":
     parser.add_argument("-eqp", "--eqp_file", help="eqp.dat file from BGW ")
     parser.add_argument("-symm", "--symm_points_file", help="File with list of high symmetry points")
     parser.add_argument("-Nval", "--Nval", help="Number of valence band")
+    parser.add_argument("-fig_name", "--fig_name", help="Name of the figure to be saved")
 
     args = parser.parse_args()
 
@@ -122,9 +144,15 @@ if __name__ == "__main__":
     if symm_points_file != None:
         plt.xticks(K_symm_dists, K_symm_labels)
         plt.xlim([0, K_symm_dists[-1]])
-    plt.grid()
     
-    plt.show()
-  
-# plt.xticks(K_path_from_k_pts_list(Path_ortho), Names_ortho)
-# plt.xlim([0, K_path_from_k_pts_list(Path_ortho)[-1]])
+    plt.grid()
+    plt.ylabel(r'$E$ (eV)')
+    
+    if args.fig_name != None:
+        fig_name = args.fig_name
+        print(f'Saving figure as {fig_name}')
+        plt.savefig(fig_name, dpi=300)
+    else:
+        print('Figure name not given. Not saving figure')
+        print('show figure')
+        plt.show()
