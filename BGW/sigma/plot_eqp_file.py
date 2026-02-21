@@ -9,12 +9,13 @@ parser = argparse.ArgumentParser()
 
 Plot eqp.dat file from BerkeleyGW to visualize bandstructure. Recommend to use eqp.dat output from inteqp.$flavor.x
 
-Usage : python plot_eqp_file.py -eqp eqp.dat -symm symm_points_file -Nval Nval -fig_name fig_name
+Usage : python plot_eqp_file.py -eqp eqp.dat -symm symm_points_file -Nval Nval -fig_name fig_name -Emin Emin -Emax Emax
 where eqp.dat is the file with the band structure from BGW
 symm_points_file is the file with the high symmetry points
 Nval is the index of last valence band (starting from 1) 
 The code set 0 to max(Eval). If don't want to shift bands, set Nval to 0 or do not use this argument
 fig_name is the name of the figure to be saved. If not given, the figure will not be saved
+Emin and Emax are the limits of the y axis. If not given, the limits will be set automatically
 
 Symm file format is a text file with lines like:
 G 0.000000000 0.000000000 0.000000000
@@ -79,6 +80,8 @@ if __name__ == "__main__":
     parser.add_argument("-symm", "--symm_points_file", help="File with list of high symmetry points")
     parser.add_argument("-Nval", "--Nval", help="Number of valence band")
     parser.add_argument("-fig_name", "--fig_name", help="Name of the figure to be saved")
+    parser.add_argument("-Emin", "--Emin", help="Minimum energy for y axis")
+    parser.add_argument("-Emax", "--Emax", help="Maximum energy for y axis")
 
     args = parser.parse_args()
 
@@ -103,6 +106,20 @@ if __name__ == "__main__":
         Nval = int(args.Nval)
         print(f"Setting maximum valence band {Nval} to zero")
         shift_bands = True
+        
+    if args.Emin == None:
+        print("Emin not given. Setting it automatically")
+        Emin = None
+    else:
+        Emin = float(args.Emin)
+        print(f"Setting minimum energy for y axis to {Emin}")
+        
+    if args.Emax == None:
+        print("Emax not given. Setting it automatically")
+        Emax = None
+    else:
+        Emax = float(args.Emax)
+        print(f"Setting maximum energy for y axis to {Emax}")
 
 
     bands_dft, bands_qp, Kpoints, Nk, band_indexes = read_eqp_dat_file(eqp_file)
@@ -144,6 +161,25 @@ if __name__ == "__main__":
     if symm_points_file != None:
         plt.xticks(K_symm_dists, K_symm_labels)
         plt.xlim([0, K_symm_dists[-1]])
+    
+    if Emin != None and Emax != None:
+        print(f"Setting energy limits for y axis to Emin = {Emin:.4f} and Emax = {Emax:.4f}")   
+    elif Emin != None and Emax == None:
+        Emax = np.max(bands_qp)
+        print(f"Emax not given. Setting it automatically. Emax = {Emax:.4f}")
+        print(f"Emin = {Emin:.4f}")
+    elif Emin == None and Emax != None:
+        Emin = np.min(bands_qp)
+        print(f"Emin not given. Setting it automatically. Emin = {Emin:.4f}")
+        print(f"Emax = {Emax:.4f}")
+    else:
+        Emin = np.min(bands_qp)
+        Emax = np.max(bands_qp)
+        print("Emin and Emax not given. Setting them automatically")
+        print(f"Emin = {Emin:.4f}")
+        print(f"Emax = {Emax:.4f}")
+
+    plt.ylim([Emin, Emax])
     
     plt.grid()
     plt.ylabel(r'$E$ (eV)')
