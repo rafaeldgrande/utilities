@@ -2,15 +2,21 @@
 import h5py
 import shutil
 import os
+import argparse
 
 ''' This script modifies the WFN.h5 file by copying the /mf_header from source_header_file to base_file.
 It makes a copy of base_file and overwrites it with the new /mf_header.
 This is useful for make similar but not equal WFN.h5 compatible with each other.'''
 
-# Original files
-source_header_file = "../../DFT/6-wfn_fi/WFN.h5"
-base_file = "../../DFPT/wfn_fi_dfpt/WFN.h5"
-output_file = "WFN_fi_mod.h5"
+parser = argparse.ArgumentParser(description="Replace /mf_header in a WFN.h5 file.")
+parser.add_argument("source_header_file", help="WFN.h5 file to copy /mf_header from")
+parser.add_argument("base_file", help="WFN.h5 file to apply the header to")
+parser.add_argument("--output", default="WFN_fi_mod.h5", dest="output_file", help="Output file name (default: WFN_fi_mod.h5)")
+args = parser.parse_args()
+
+source_header_file = args.source_header_file
+base_file = args.base_file
+output_file = args.output_file
 
 # Step 1: Copy the entire original file to the new one
 shutil.copy(base_file, output_file)
